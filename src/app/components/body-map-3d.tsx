@@ -34,7 +34,7 @@ const HOTSPOTS_3D: Hotspot3D[] = [
   { id: 'foot',         slot: 'hotspot-foot',       position: '-0.288 -1.338 0.124',    normal: '-0.253 0.893 0.371',  label: '발' },
 ];
 
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/Xbot.glb';
+const MODEL_URL = 'https://raw.githubusercontent.com/didighgh0451-wq/Interactiveacupuncturewebpage/main/public/1.glb';
 // ↑ 인체 GLB 모델 URL로 교체 필요
 // 예: const MODEL_URL = '/models/human-body.glb';
 // 예: const MODEL_URL = 'https://cdn.jsdelivr.net/gh/유저명/레포/models/body.glb';

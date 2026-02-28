@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>의료용 3D 혈자리 맵 (Clinical Edition)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Model Viewer Component -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a; /* slate-900: 의료 기기 화면 같은 어두운 배경 */
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100vh;
+            background-color: #0f172a; 
+            --poster-color: transparent;
+        }
+
+        /* 의료용 타겟팅 느낌의 핫스팟 스타일 (Cyan 컬러) */
+        .hotspot {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(6, 182, 212, 0.8); /* cyan-500 */
+            background-color: rgba(6, 182, 212, 0.2);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        /* 핫스팟 중심점 */
+        .hotspot::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background-color: #06b6d4; /* cyan-500 */
+            border-radius: 50%;
+            box-shadow: 0 0 8px #06b6d4;
+        }
+
+        .hotspot:hover {
+            transform: scale(1.3);
+            background-color: rgba(6, 182, 212, 0.4);
+        }
+
+        /* 스캐너 파동 애니메이션 */
+        .hotspot::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid #06b6d4;
+            animation: radar 2s infinite ease-out;
+            box-sizing: content-box;
+        }
+
+        @keyframes radar {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+        }
+
+        .hotspot:focus { outline: none; }
+    </style>
+</head>
+<body class="font-sans antialiased text-slate-200">
+
+    <div class="relative w-full h-full">
+        
+        <!-- 상단 헤더: 의료용 콘솔 느낌 -->
+        <div class="absolute top-4 left-4 md:top-8 md:left-8 z-10 bg-slate-800/80 backdrop-blur-md p-5 rounded-xl shadow-lg border border-slate-700 pointer-events-none">
+            <h1 class="text-xl md:text-2xl font-bold text-cyan-400 flex items-center gap-3 tracking-wide">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                AcuPoint 3D Analysis
+            </h1>
+            <p class="text-sm text-slate-400 mt-2 font-mono">System Status: <span class="text-emerald-400">Online</span> | Model: <span class="text-cyan-200">Human Base v1.0</span></p>
+        </div>
+
+        <!-- 3D 모델 뷰어 -->
+        <!-- 
+          * [고퀄리티 모델 적용 방법]
+          * 실제 프로젝트에서는 src="https://cdn..." 부분을 
+          * src="/high-res-anatomy.glb" 와 같이 로컬에 저장한 고퀄리티 파일 경로로 변경하세요.
+        -->
+        <model-viewer 
+            id="body-model" 
+            src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/Xbot.glb" 
+            camera-controls 
+            shadow-intensity="1" 
+            exposure="0.8"
+            alt="Medical 3D Human Model">
+            
+            <!-- 백회혈 -->
+            <button slot="hotspot-baekhoe" class="hotspot" 
+                data-position="0 1.68 0.03" data-normal="0 1 0" 
+                data-name="백회 (GV20)" 
+                data-category="독맥(督脈)"
+                data-desc="두통, 어지럼증, 불면증 완화. 체내의 양기가 모이는 가장 높은 곳."></button>
+            
+            <!-- 합곡혈 -->
+            <button slot="hotspot-hapgok" class="hotspot" 
+                data-position="0.55 0.85 0.05" data-normal="1 0 0" 
+                data-name="합곡 (LI4)" 
+                data-category="수양명대장경(手陽明大腸經)"
+                data-desc="소화불량, 두통, 치통 완화. 신체 전반의 통증을 제어하는 대표적인 마취 혈자리."></button>
+            
+            <!-- 족삼리혈 -->
+            <button slot="hotspot-zusanli" class="hotspot" 
+                data-position="0.12 0.4 0.1" data-normal="0 0 1" 
+                data-name="족삼리 (ST36)" 
+                data-category="족양명위경(足陽明胃經)"
+                data-desc="위장 기능 강화, 면역력 증진, 피로 회복에 탁월한 하체의 핵심 혈자리."></button>
+
+        </model-viewer>
+
+        <!-- 정보 표시 패널 (다크 모드, 의료 차트 스타일) -->
+        <div id="info-panel" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md bg-slate-800/95 backdrop-blur-sm rounded-xl shadow-2xl p-6 transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-20 border border-slate-600">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <span id="info-category" class="text-xs font-mono text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">경락 정보</span>
+                    <h2 id="info-title" class="text-2xl font-bold text-cyan-50 mt-2 tracking-tight">혈자리 이름</h2>
+                </div>
+                <button id="close-btn" class="text-slate-400 hover:text-white transition-colors pointer-events-auto bg-slate-700 hover:bg-slate-600 rounded-full p-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="w-full h-px bg-slate-700 mb-4"></div>
+            <div class="space-y-3">
+                <p class="text-slate-300 text-sm flex items-start gap-2">
+                    <svg class="w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="info-desc" class="leading-relaxed">상세 설명이 표시됩니다.</span>
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const hotspots = document.querySelectorAll('.hotspot');
+            const infoPanel = document.getElementById('info-panel');
+            const infoTitle = document.getElementById('info-title');
+            const infoDesc = document.getElementById('info-desc');
+            const infoCategory = document.getElementById('info-category');
+            const closeBtn = document.getElementById('close-btn');
+            const modelViewer = document.getElementById('body-model');
+
+            hotspots.forEach(hotspot => {
+                hotspot.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    infoTitle.textContent = hotspot.dataset.name;
+                    infoDesc.textContent = hotspot.dataset.desc;
+                    infoCategory.textContent = hotspot.dataset.category;
+
+                    infoPanel.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+                    infoPanel.classList.add('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                });
+            });
+
+            closeBtn.addEventListener('click', () => {
+                hidePanel();
+            });
+
+            modelViewer.addEventListener('click', (e) => {
+                if (!e.target.closest('.hotspot')) {
+                    hidePanel();
+                }
+            });
+
+            function hidePanel() {
+                infoPanel.classList.remove('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                infoPanel.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+            }
+        });
+    </script>
+</body>
+</html>

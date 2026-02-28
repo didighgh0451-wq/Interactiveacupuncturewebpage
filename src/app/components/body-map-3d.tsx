@@ -1,13 +1,11 @@
 // ============================================================
-// 3D 바디맵 — Google Model Viewer + 글로우 핫스팟 + 줌인
-// 자동 회전 제거 · 스켈레톤 로딩 · 줌인 피드백
+// 3D 바디맵 — Google Model Viewer
+// 멀티 리플 핫스팟 + 줌인 폭발 이펙트 + 플로팅 배지
 // ============================================================
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-// ── 캘리브레이션 모드 ──
 const CALIBRATION_MODE = false;
 
-// ── 3D 핫스팟 위치 ──
 interface Hotspot3D {
   id: string;
   slot: string;
@@ -75,9 +73,10 @@ export function BodyMap3D({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
-  const [modelLoaded, setModelLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [zoomedLabel, setZoomedLabel] = useState<string | null>(null);
+  const [showBurst, setShowBurst] = useState(false);
   const [calibrationLog, setCalibrationLog] = useState<
     { position: string; normal: string }[]
   >([]);
@@ -87,25 +86,37 @@ export function BodyMap3D({
     try { navigator?.vibrate?.(ms); } catch {}
   }, []);
 
-  // 줌인 함수
+  // 줌인 + 폭발 이펙트
   const zoomToHotspot = useCallback((hotspot: Hotspot3D) => {
     const mv = viewerRef.current as any;
     if (!mv) return;
 
     triggerHaptic(25);
+    mv.removeAttribute('auto-rotate');
     mv.setAttribute('interpolation-decay', '100');
     mv.setAttribute('camera-orbit', hotspot.cameraOrbit);
     mv.setAttribute('camera-target', hotspot.cameraTarget);
-    
+
     setZoomed(true);
     setZoomedLabel(hotspot.label);
 
+    // 폭발 이펙트
+    setShowBurst(true);
+    setTimeout(() => setShowBurst(false), 800);
+
+    // 결과 표시 후 자동 줌아웃
     setTimeout(() => {
       onClick(hotspot.id);
     }, 500);
+    setTimeout(() => {
+      mv.setAttribute('interpolation-decay', '200');
+      mv.setAttribute('camera-orbit', DEFAULT_CAMERA_ORBIT);
+      mv.setAttribute('camera-target', DEFAULT_CAMERA_TARGET);
+      setZoomed(false);
+      setZoomedLabel(null);
+    }, 1800);
   }, [onClick, triggerHaptic]);
 
-  // 줌 리셋 함수
   const resetZoom = useCallback(() => {
     const mv = viewerRef.current as any;
     if (!mv) return;
@@ -114,12 +125,13 @@ export function BodyMap3D({
     mv.setAttribute('interpolation-decay', '100');
     mv.setAttribute('camera-orbit', DEFAULT_CAMERA_ORBIT);
     mv.setAttribute('camera-target', DEFAULT_CAMERA_TARGET);
-    
+    mv.setAttribute('auto-rotate', '');
+
     setZoomed(false);
     setZoomedLabel(null);
   }, [triggerHaptic]);
 
-  // ── 1) 스크립트 동적 로딩 ──
+  // ── 1) 스크립트 로딩 + 타임아웃/에러 처리 ──
   useEffect(() => {
     if (!document.querySelector('meta[name="viewport"]')) {
       const meta = document.createElement('meta');
@@ -133,25 +145,35 @@ export function BodyMap3D({
       return;
     }
 
-    const existing = document.querySelector(`script[src="${VIEWER_SCRIPT}"]`);
-    if (existing) {
-      existing.addEventListener('load', () => setReady(true));
-      return;
+    // 20초 타임아웃
+    const timeout = setTimeout(() => {
+      setLoadError(true);
+    }, 20000);
+
+    customElements.whenDefined('model-viewer').then(() => {
+      clearTimeout(timeout);
+      setReady(true);
+      setLoadError(false);
+    });
+
+    if (!document.querySelector(`script[src="${VIEWER_SCRIPT}"]`)) {
+      const script = document.createElement('script');
+      script.type = 'module';
+      script.src = VIEWER_SCRIPT;
+      script.onerror = () => { clearTimeout(timeout); setLoadError(true); };
+      document.head.appendChild(script);
     }
 
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = VIEWER_SCRIPT;
-    script.onload = () => setReady(true);
-    document.head.appendChild(script);
+    return () => clearTimeout(timeout);
   }, []);
 
-  // ── 2) model-viewer 엘리먼트 생성 (자동 회전 제거!) ──
+  // ── 2) model-viewer 생성 ──
   useEffect(() => {
     if (!ready || !containerRef.current) return;
 
     const wrapper = containerRef.current.querySelector('#mv-wrapper');
     if (!wrapper) return;
+
     if (viewerRef.current) return;
 
     const mv = document.createElement('model-viewer') as any;
@@ -164,19 +186,18 @@ export function BodyMap3D({
     mv.setAttribute('max-camera-orbit', 'auto auto 5m');
     mv.setAttribute('field-of-view', '30deg');
     mv.setAttribute('interaction-prompt', 'none');
-    // ❌ 자동 회전 완전 제거
+    mv.setAttribute('auto-rotate', '');
+    mv.setAttribute('auto-rotate-delay', '5000');
+    mv.setAttribute('rotation-per-second', '8deg');
     mv.setAttribute('interpolation-decay', '100');
     mv.setAttribute('alt', '3D 인체 혈자리 모델');
     mv.style.width = '100%';
     mv.style.height = '100%';
     mv.style.setProperty('--poster-color', 'transparent');
 
-    // 모델 로딩 완료 감지
-    mv.addEventListener('load', () => {
-      setModelLoaded(true);
-    });
+    // 모델 로딩 에러 감지
+    mv.addEventListener('error', () => { setLoadError(true); });
 
-    // 캘리브레이션 모드
     if (CALIBRATION_MODE) {
       mv.addEventListener('click', (e: MouseEvent) => {
         if (typeof mv.positionAndNormalFromPoint === 'function') {
@@ -194,19 +215,38 @@ export function BodyMap3D({
       });
     }
 
-    // 핫스팟 생성 (각각 다른 animation-delay)
+    // 핫스팟 생성 — 멀티 리플 구조
     HOTSPOTS_3D.forEach((h, idx) => {
       const btn = document.createElement('button');
       btn.slot = h.slot;
-      btn.className = 'acupoint-zone';
+      btn.className = 'acu-hotspot';
       btn.dataset.hotspotId = h.id;
       btn.dataset.position = h.position;
       btn.dataset.normal = h.normal;
       btn.dataset.visibilityAttribute = 'visible';
-      btn.style.animationDelay = `${idx * 0.2}s`;
+      btn.style.setProperty('--acu-delay', `${idx * 0.15}s`);
 
+      // 리플 링 3개
+      for (let r = 0; r < 3; r++) {
+        const ring = document.createElement('span');
+        ring.className = 'acu-ring';
+        ring.style.animationDelay = `${r * 0.7}s`;
+        btn.appendChild(ring);
+      }
+
+      // 코어 도트
+      const core = document.createElement('span');
+      core.className = 'acu-core';
+      btn.appendChild(core);
+
+      // 내부 하이라이트
+      const highlight = document.createElement('span');
+      highlight.className = 'acu-highlight';
+      btn.appendChild(highlight);
+
+      // 라벨
       const label = document.createElement('span');
-      label.className = 'acupoint-zone-label';
+      label.className = 'acu-label';
       label.textContent = h.label;
       btn.appendChild(label);
 
@@ -224,25 +264,24 @@ export function BodyMap3D({
     };
   }, [ready]);
 
-  // ── 3) 테마 업데이트 ──
+  // ── 3) 테마 ──
   useEffect(() => {
     const mv = viewerRef.current as any;
     if (!mv) return;
-    const bgColor = isDark ? '#1C1C1E' : '#F2F2F7';
-    mv.style.backgroundColor = bgColor;
+    const bg = isDark ? '#1C1C1E' : '#F2F2F7';
+    mv.style.backgroundColor = bg;
     mv.setAttribute('exposure', isDark ? '0.6' : '0.9');
   }, [isDark, ready]);
 
-  // ── 4) hover/selected 상태 반영 ──
+  // ── 4) hover/selected ──
   useEffect(() => {
     const mv = viewerRef.current;
     if (!mv) return;
-
-    const buttons = mv.querySelectorAll('.acupoint-zone') as NodeListOf<HTMLElement>;
-    buttons.forEach((btn) => {
+    const btns = mv.querySelectorAll('.acu-hotspot') as NodeListOf<HTMLElement>;
+    btns.forEach((btn) => {
       const id = btn.dataset.hotspotId;
-      btn.classList.toggle('hovered', id === hoveredPartId);
-      btn.classList.toggle('selected', id === selectedPartId);
+      btn.classList.toggle('is-hovered', id === hoveredPartId);
+      btn.classList.toggle('is-selected', id === selectedPartId);
     });
   }, [hoveredPartId, selectedPartId, ready]);
 
@@ -289,7 +328,6 @@ export function BodyMap3D({
     };
   }, [zoomToHotspot, onHover, triggerHaptic]);
 
-  // selectedPartId 해제 시 줌 리셋
   useEffect(() => {
     if (!selectedPartId && zoomed) {
       resetZoom();
@@ -297,168 +335,178 @@ export function BodyMap3D({
   }, [selectedPartId, zoomed, resetZoom]);
 
   const bgColor = isDark ? '#1C1C1E' : '#F2F2F7';
-  const accent = '#0D9488';
+  const A = '#0D9488';
 
   return (
     <div ref={containerRef} className="w-full h-full relative">
       <style>{`
-        .acupoint-zone {
+        /* ===== 핫스팟 — 미니멀 글래스 ===== */
+        .acu-hotspot {
           display: flex;
           justify-content: center;
           align-items: center;
-          width: 28px;
-          height: 28px;
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
           border: none;
           background: transparent;
           cursor: pointer;
           position: relative;
           z-index: 10;
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-          animation: acupoint-entrance 0.6s ease-out both;
+          transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+          animation: acu-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: var(--acu-delay, 0s);
+          -webkit-tap-highlight-color: transparent;
         }
-        @keyframes acupoint-entrance {
-          from { opacity: 0; transform: scale(0); }
+        @keyframes acu-fade-in {
+          from { opacity: 0; transform: scale(0.3); }
           to   { opacity: 1; transform: scale(1); }
         }
 
-        /* 중앙 도트 */
-        .acupoint-zone::before {
-          content: '';
+        /* 코어 — 글래스모피즘 도트 */
+        .acu-core {
           position: absolute;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: ${accent};
-          box-shadow: 0 0 6px ${accent}AA, 0 0 14px ${accent}55;
-          animation: acupoint-breathe 2.8s ease-in-out infinite;
-          animation-delay: inherit;
-          transition: all 0.3s ease;
-        }
-
-        /* 외곽 링 */
-        .acupoint-zone::after {
-          content: '';
-          position: absolute;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          border: 1.5px solid ${accent}45;
-          animation: acupoint-ring 3s ease-out infinite;
-          animation-delay: inherit;
-          pointer-events: none;
-        }
-
-        @keyframes acupoint-breathe {
-          0%, 100% {
-            opacity: 0.65;
-            box-shadow: 0 0 4px ${accent}88, 0 0 10px ${accent}33;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 1;
-            box-shadow: 0 0 8px ${accent}CC, 0 0 18px ${accent}55;
-            transform: scale(1.15);
-          }
-        }
-
-        @keyframes acupoint-ring {
-          0%   { transform: scale(1);   opacity: 0.5; }
-          60%  { transform: scale(2.2); opacity: 0; }
-          100% { transform: scale(2.2); opacity: 0; }
-        }
-
-        /* ── 호버 ── */
-        .acupoint-zone:hover,
-        .acupoint-zone.hovered {
-          transform: scale(1.25);
-        }
-        .acupoint-zone:hover::before,
-        .acupoint-zone.hovered::before {
-          width: 10px;
-          height: 10px;
-          opacity: 1;
-          background: white;
-          box-shadow: 0 0 8px ${accent}, 0 0 20px ${accent}88, 0 0 36px ${accent}44;
-          animation: none;
-        }
-        .acupoint-zone:hover::after,
-        .acupoint-zone.hovered::after {
-          width: 26px;
-          height: 26px;
-          border: 2px solid ${accent}88;
-          animation: none;
-          opacity: 1;
-        }
-
-        /* ── 선택 ── */
-        .acupoint-zone.selected {
-          transform: scale(1.35);
-        }
-        .acupoint-zone.selected::before {
           width: 12px;
           height: 12px;
-          opacity: 1;
-          background: white;
-          box-shadow: 0 0 10px ${accent}, 0 0 24px ${accent}AA, 0 0 44px ${accent}55;
-          animation: none;
+          border-radius: 50%;
+          background: ${isDark
+            ? 'rgba(94, 234, 212, 0.85)'
+            : 'rgba(13, 148, 136, 0.8)'};
+          backdrop-filter: blur(4px);
+          border: 1.5px solid ${isDark ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.7)'};
+          box-shadow: 0 0 12px ${A}55, 0 2px 8px rgba(0,0,0,0.1);
+          animation: acu-breathe 3s ease-in-out infinite;
+          animation-delay: var(--acu-delay, 0s);
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          z-index: 3;
         }
-        .acupoint-zone.selected::after {
-          width: 28px;
-          height: 28px;
-          border: 2.5px solid ${accent};
-          animation: acupoint-selected-ring 1.5s ease-out infinite;
-          opacity: 1;
-        }
-        @keyframes acupoint-selected-ring {
-          0%   { transform: scale(1);   opacity: 0.8; border-color: ${accent}; }
-          100% { transform: scale(2.5); opacity: 0;   border-color: ${accent}00; }
+        @keyframes acu-breathe {
+          0%, 100% { opacity: 0.75; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.1); }
         }
 
-        /* ── 라벨 ── */
-        .acupoint-zone-label {
+        /* 하이라이트 — 안쓰이지만 DOM에 있으므로 숨김 */
+        .acu-highlight {
+          display: none;
+        }
+
+        /* 링 — 얇고 깨끗한 단일 웨이브 */
+        .acu-ring {
           position: absolute;
-          top: -30px; left: 50%;
-          transform: translateX(-50%) translateY(5px) scale(0.9);
-          background: ${isDark ? 'rgba(44,44,46,0.95)' : 'rgba(255,255,255,0.96)'};
-          color: ${isDark ? '#E5E5EA' : '#1C1C1E'};
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          border: 1px solid ${isDark ? 'rgba(94,234,212,0.4)' : `${A}40`};
+          animation: acu-wave 2.8s ease-out infinite;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .acu-ring:nth-child(2) { animation-delay: 0.9s; }
+        .acu-ring:nth-child(3) { animation-delay: 1.8s; }
+        @keyframes acu-wave {
+          0%   { transform: scale(1); opacity: 0.5; }
+          100% { transform: scale(3.5); opacity: 0; }
+        }
+
+        /* ===== 호버 ===== */
+        .acu-hotspot:hover,
+        .acu-hotspot.is-hovered {
+          transform: scale(1.15);
+        }
+        .acu-hotspot:hover .acu-core,
+        .acu-hotspot.is-hovered .acu-core {
+          width: 14px;
+          height: 14px;
+          background: ${isDark ? 'rgba(94,234,212,1)' : 'rgba(13,148,136,0.95)'};
+          border-color: rgba(255,255,255,0.9);
+          box-shadow: 0 0 18px ${A}88, 0 0 36px ${A}33;
+          animation: none;
+        }
+        .acu-hotspot:hover .acu-ring,
+        .acu-hotspot.is-hovered .acu-ring {
+          border-color: ${isDark ? 'rgba(94,234,212,0.5)' : `${A}55`};
+        }
+
+        /* ===== 선택 ===== */
+        .acu-hotspot.is-selected {
+          transform: scale(1.25);
+        }
+        .acu-hotspot.is-selected .acu-core {
+          width: 16px;
+          height: 16px;
+          background: white;
+          border: 2px solid ${A};
+          box-shadow: 0 0 16px ${A}AA, 0 0 32px ${A}44;
+          animation: none;
+        }
+        .acu-hotspot.is-selected .acu-ring {
+          border-color: ${A}88;
+          animation: acu-sel-wave 1.8s ease-out infinite;
+        }
+        @keyframes acu-sel-wave {
+          0%   { transform: scale(1); opacity: 0.8; }
+          100% { transform: scale(3); opacity: 0; }
+        }
+
+        /* ===== 라벨 — 글래스 필 ===== */
+        .acu-label {
+          position: absolute;
+          top: -34px; left: 50%;
+          transform: translateX(-50%) translateY(6px);
+          background: ${isDark ? 'rgba(38,38,40,0.88)' : 'rgba(255,255,255,0.92)'};
+          backdrop-filter: blur(12px) saturate(180%);
+          -webkit-backdrop-filter: blur(12px) saturate(180%);
+          color: ${isDark ? '#F5F5F7' : '#1C1C1E'};
           font-size: 11px;
-          font-weight: 700;
-          padding: 3px 10px;
+          font-weight: 600;
+          padding: 5px 12px;
           border-radius: 8px;
           white-space: nowrap;
           pointer-events: none;
           opacity: 0;
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+          transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 4px 16px rgba(0,0,0,${isDark ? '0.4' : '0.1'});
           font-family: 'Noto Sans KR', system-ui, sans-serif;
-          border: 1px solid ${isDark ? 'rgba(99,99,102,0.25)' : 'rgba(0,0,0,0.06)'};
+          border: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'};
+          z-index: 20;
+          letter-spacing: 0.02em;
         }
-        .acupoint-zone-label::after {
+        .acu-label::after {
           content: '';
           position: absolute;
           bottom: -3px; left: 50%;
           transform: translateX(-50%) rotate(45deg);
           width: 6px; height: 6px;
           background: inherit;
-          border-right: 1px solid ${isDark ? 'rgba(99,99,102,0.25)' : 'rgba(0,0,0,0.06)'};
-          border-bottom: 1px solid ${isDark ? 'rgba(99,99,102,0.25)' : 'rgba(0,0,0,0.06)'};
+          border-right: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'};
+          border-bottom: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'};
         }
-        .acupoint-zone:hover .acupoint-zone-label,
-        .acupoint-zone.hovered .acupoint-zone-label {
+
+        .acu-hotspot:hover .acu-label,
+        .acu-hotspot.is-hovered .acu-label {
           opacity: 1;
-          transform: translateX(-50%) translateY(0) scale(1);
+          transform: translateX(-50%) translateY(0);
         }
-        .acupoint-zone.selected .acupoint-zone-label {
+        .acu-hotspot.is-selected .acu-label {
           opacity: 1;
-          transform: translateX(-50%) translateY(0) scale(1);
-          background: ${accent};
+          transform: translateX(-50%) translateY(0);
+          background: ${A};
           color: white;
-          border-color: ${accent};
+          border-color: transparent;
+          box-shadow: 0 4px 16px ${A}55;
         }
-        .acupoint-zone.selected .acupoint-zone-label::after {
-          background: ${accent};
-          border-color: ${accent};
+        .acu-hotspot.is-selected .acu-label::after {
+          background: ${A};
+          border-color: transparent;
+        }
+
+        @keyframes acu-burst {
+          0% { transform: scale(0); opacity: 1; }
+          100% { transform: scale(4); opacity: 0; }
+        }
+        @keyframes acu-fade-up {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
@@ -468,87 +516,202 @@ export function BodyMap3D({
         className="w-full h-full"
         style={{ backgroundColor: bgColor }}
       >
-        {/* 스켈레톤 로딩 */}
-        {!modelLoaded && (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-            {/* 실루엣 */}
-            <div className="relative" style={{ opacity: 0.3 }}>
-              <svg width="120" height="280" viewBox="60 0 280 610" fill="none">
-                <ellipse cx={200} cy={48} rx={26} ry={30} fill={isDark ? '#3A3A3C' : '#D1D5DB'} />
-                <rect x={189} y={76} width={22} height={22} rx={6} fill={isDark ? '#3A3A3C' : '#D1D5DB'} />
-                <path d="M132,132 C132,132 130,160 132,188 C134,210 138,228 142,244 C146,260 150,274 152,288 C154,298 156,306 158,312 L242,312 C244,306 246,298 248,288 C250,274 254,260 258,244 C262,228 266,210 268,188 C270,160 268,132 268,132 Z" fill={isDark ? '#3A3A3C' : '#D1D5DB'} />
-                <path d="M132,132 C128,134 124,140 120,150 C116,164 114,180 112,196 C110,210 108,224 108,234 L116,238 C116,228 118,214 120,200 C122,186 124,172 128,158 C132,146 136,138 140,132 Z" fill={isDark ? '#3A3A3C' : '#D1D5DB'} />
-                <path d="M268,132 C272,134 276,140 280,150 C284,164 286,180 288,196 C290,210 292,224 292,234 L284,238 C284,228 282,214 280,200 C278,186 276,172 272,158 C268,146 264,138 260,132 Z" fill={isDark ? '#3A3A3C' : '#D1D5DB'} />
-                <path d="M178,356 C176,370 174,390 174,410 C174,430 174,446 174,456 L192,456 C192,446 192,430 192,410 C192,390 192,370 192,356 Z" fill={isDark ? '#3A3A3C' : '#D1D5DB'} />
-                <path d="M222,356 C224,370 226,390 226,410 C226,430 226,446 226,456 L208,456 C208,446 208,430 208,410 C208,390 208,370 208,356 Z" fill={isDark ? '#3A3A3C' : '#D1D5DB'} />
-                {/* 펄스하는 혈자리 점 */}
-                {[{x:200,y:48},{x:200,y:158},{x:200,y:250},{x:148,y:132},{x:200,y:460}].map((p,i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r={6} fill={accent} opacity={0.5}>
-                    <animate attributeName="opacity" values="0.3;0.7;0.3" dur="1.5s" begin={`${i*0.3}s`} repeatCount="indefinite" />
-                    <animate attributeName="r" values="4;8;4" dur="1.5s" begin={`${i*0.3}s`} repeatCount="indefinite" />
-                  </circle>
-                ))}
+        {!ready && (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+            {loadError ? (
+              /* ── 에러 상태 ── */
+              <div className="flex flex-col items-center gap-3 text-center px-6">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={isDark ? '#F87171' : '#EF4444'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <p className="text-[15px]" style={{ color: isDark ? '#E5E5EA' : '#374151', fontWeight: 600 }}>
+                  3D 모델을 불러오지 못했어요
+                </p>
+                <p className="text-[13px]" style={{ color: isDark ? '#A1A1AA' : '#6B7280', fontWeight: 400 }}>
+                  네트워크 연결을 확인하고 다시 시도해주세요.
+                </p>
+                <button
+                  onClick={() => { setLoadError(false); window.location.reload(); }}
+                  className="mt-2 px-6 py-2.5 rounded-xl text-[14px] cursor-pointer active:scale-[0.97] transition-transform"
+                  style={{
+                    background: A,
+                    color: 'white',
+                    fontWeight: 700,
+                    boxShadow: `0 4px 16px ${A}44`,
+                  }}
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              /* ── 로딩 스켈레톤 ── */
+              <>
+            {/* 인체 실루엣 스켈레톤 */}
+            <div className="relative flex flex-col items-center" style={{ animation: 'skeleton-pulse 1.8s ease-in-out infinite' }}>
+              <svg width="120" height="280" viewBox="0 0 120 280" fill="none" style={{ opacity: 0.15 }}>
+                {/* 머리 */}
+                <circle cx="60" cy="28" r="20" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 목 */}
+                <rect x="52" y="48" width="16" height="12" rx="4" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 몸통 */}
+                <path d="M30 60H90C92 60 94 62 94 64V140C94 142 92 144 90 144H30C28 144 26 142 26 140V64C26 62 28 60 30 60Z" fill={isDark ? '#A1A1AA' : '#9CA3AF'} rx="12" />
+                {/* 왼팔 */}
+                <path d="M26 68C18 70 8 90 4 120C2 130 6 134 10 132L26 100" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 오른팔 */}
+                <path d="M94 68C102 70 112 90 116 120C118 130 114 134 110 132L94 100" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 골반 */}
+                <path d="M34 144H86L90 170H30L34 144Z" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 왼다리 */}
+                <rect x="34" y="170" width="20" height="80" rx="8" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 오른다리 */}
+                <rect x="66" y="170" width="20" height="80" rx="8" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 왼발 */}
+                <ellipse cx="44" cy="256" rx="14" ry="6" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
+                {/* 오른발 */}
+                <ellipse cx="76" cy="256" rx="14" ry="6" fill={isDark ? '#A1A1AA' : '#9CA3AF'} />
               </svg>
+              {/* 핫스팟 스켈레톤 도트 */}
+              {[
+                { x: 60, y: 28 }, { x: 60, y: 55 }, { x: 60, y: 90 },
+                { x: 60, y: 120 }, { x: 44, y: 200 }, { x: 76, y: 200 },
+              ].map((dot, i) => (
+                <span
+                  key={i}
+                  className="absolute rounded-full"
+                  style={{
+                    left: dot.x - 4,
+                    top: dot.y - 4,
+                    width: 8,
+                    height: 8,
+                    background: A,
+                    opacity: 0.25,
+                    animation: `skeleton-dot 1.5s ${i * 0.2}s ease-in-out infinite`,
+                  }}
+                />
+              ))}
             </div>
-            <div className="flex flex-col items-center gap-2">
-              <div
-                className="w-8 h-8 border-[2.5px] rounded-full animate-spin"
-                style={{ borderColor: `${accent}22`, borderTopColor: accent }}
-              />
-              <span
-                className="text-[13px]"
-                style={{ color: isDark ? '#8E8E93' : '#8E8E93', fontWeight: 500 }}
-              >
-                3D 모델을 불러오는 중...
-              </span>
-            </div>
+            <span
+              className="text-[13px] mt-2"
+              style={{ color: isDark ? '#A1A1AA' : '#6B7280', fontWeight: 500 }}
+            >
+              3D 모델 불러오는 중...
+            </span>
+            <style>{`
+              @keyframes skeleton-pulse {
+                0%, 100% { opacity: 0.6; }
+                50% { opacity: 1; }
+              }
+              @keyframes skeleton-dot {
+                0%, 100% { transform: scale(1); opacity: 0.2; }
+                50% { transform: scale(1.8); opacity: 0.5; }
+              }
+            `}</style>
+              </>
+            )}
           </div>
         )}
       </div>
 
-      {/* 하단 안내 */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-        <div
-          className="px-4 py-2 rounded-full text-[12px] backdrop-blur-md border"
-          style={{
-            backgroundColor: isDark ? 'rgba(44,44,46,0.7)' : 'rgba(255,255,255,0.7)',
-            borderColor: isDark ? 'rgba(99,99,102,0.3)' : 'rgba(209,213,219,0.5)',
-            color: isDark ? '#A1A1AA' : '#6B7280',
-            fontWeight: 500,
-          }}
-        >
-          {CALIBRATION_MODE
-            ? '📍 캘리브레이션 모드 — 모델을 클릭하면 좌표가 표시됩니다'
-            : zoomed
-              ? `${zoomedLabel ?? ''} 부위를 확대 중`
-              : '드래그로 회전 · 빛나는 부위를 터치해보세요'}
+      {/* ── 줌인 폭발 이펙트 오버레이 ── */}
+      {showBurst && (
+        <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                width: 40,
+                height: 40,
+                border: `2px solid ${A}`,
+                animation: `acu-burst 0.8s ${i * 0.12}s cubic-bezier(0.16, 1, 0.3, 1) forwards`,
+                opacity: 0,
+              }}
+            />
+          ))}
+          <div
+            className="absolute w-3 h-3 rounded-full"
+            style={{
+              background: 'white',
+              boxShadow: `0 0 20px ${A}, 0 0 40px ${A}88`,
+              animation: 'acu-burst 0.6s 0s ease-out forwards',
+            }}
+          />
         </div>
+      )}
+
+      {/* ── 하단: 줌 상태 플로팅 배지 ── */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+        {zoomed && zoomedLabel ? (
+          <div
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full backdrop-blur-xl border shadow-lg"
+            style={{
+              backgroundColor: isDark ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.1)',
+              borderColor: `${A}55`,
+              animation: 'acu-fade-up 0.4s ease-out both',
+            }}
+          >
+            {/* 라이브 도트 */}
+            <span
+              className="w-2 h-2 rounded-full animate-pulse"
+              style={{ backgroundColor: A }}
+            />
+            <span
+              className="text-[13px]"
+              style={{ color: A, fontWeight: 700 }}
+            >
+              {zoomedLabel}
+            </span>
+            <span
+              className="text-[11px]"
+              style={{ color: isDark ? '#A1A1AA' : '#6B7280', fontWeight: 500 }}
+            >
+              부위를 확대 중
+            </span>
+          </div>
+        ) : (
+          <div
+            className="px-4 py-2 rounded-full text-[12px] backdrop-blur-md border pointer-events-none"
+            style={{
+              backgroundColor: isDark ? 'rgba(44,44,46,0.7)' : 'rgba(255,255,255,0.7)',
+              borderColor: isDark ? 'rgba(99,99,102,0.3)' : 'rgba(209,213,219,0.5)',
+              color: isDark ? '#A1A1AA' : '#6B7280',
+              fontWeight: 500,
+            }}
+          >
+            {CALIBRATION_MODE
+              ? '📍 캘리브레이션 모드 — 모델을 클릭하면 좌표가 표시됩니다'
+              : '드래그로 회전 · 빛나는 부위를 터치해보세요'}
+          </div>
+        )}
       </div>
 
-      {/* 줌 리셋 버튼 */}
+      {/* ── 줌 리셋 버튼 ── */}
       {zoomed && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            resetZoom();
-          }}
-          className="absolute top-4 right-4 z-20 px-3.5 py-2 rounded-full text-[12px] backdrop-blur-md border cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+          onClick={(e) => { e.stopPropagation(); resetZoom(); }}
+          className="absolute top-4 right-4 z-20 px-4 py-2.5 rounded-full text-[13px] backdrop-blur-xl border cursor-pointer transition-all duration-300 active:scale-90 flex items-center gap-2"
           style={{
-            backgroundColor: isDark ? 'rgba(44,44,46,0.9)' : 'rgba(255,255,255,0.9)',
+            backgroundColor: isDark ? 'rgba(44,44,46,0.9)' : 'rgba(255,255,255,0.92)',
             borderColor: isDark ? 'rgba(99,99,102,0.3)' : 'rgba(209,213,219,0.5)',
             color: isDark ? '#E5E5EA' : '#374151',
-            fontWeight: 600,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+            fontWeight: 700,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+            animation: 'acu-fade-up 0.3s ease-out both',
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
           </svg>
           전체 보기
         </button>
       )}
 
-      {/* 캘리브레이션 로그 패널 */}
+      {/* 캘리브레이션 로그 */}
       {CALIBRATION_MODE && calibrationLog.length > 0 && (
         <div
           className="absolute top-3 right-3 z-20 max-h-[60%] overflow-y-auto rounded-xl p-3 border backdrop-blur-md"

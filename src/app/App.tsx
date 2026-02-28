@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, ChevronLeft, ChevronRight, ClipboardList, MapPin, Hand, Clock, RotateCcw, Sparkles, Shield, Share2, ArrowLeft, X, Zap, Box, Layers } from 'lucide-react';
+import { Search, ChevronRight, ClipboardList, MapPin, Hand, Clock, RotateCcw, Sparkles, Shield, Share2, ArrowLeft, X, Zap } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
-import { BodyMap } from './components/body-map';
 import { BodyMap3D } from './components/body-map-3d';
 
 // ============================================================
@@ -21,15 +20,11 @@ interface SubPartData {
   symptoms: SymptomData[];
 }
 
-interface BodyGroupData {
-  id: string;
-  name: string;
-  zoomOrg: string;
-  zoomScale: number;
-}
+
 
 interface PointDetail {
   name: string;
+  tagline: string;
   location: string;
   method: string;
   duration: string;
@@ -45,38 +40,32 @@ interface SituationShortcut {
   symptomTitle: string;
 }
 
-const BODY_GROUPS: Record<string, BodyGroupData> = {
-  head:    { id: 'head',    name: '머리·눈·목',  zoomOrg: 'center 12%', zoomScale: 2.5 },
-  chest:   { id: 'chest',   name: '어깨·가슴',   zoomOrg: 'center 24%', zoomScale: 2.2 },
-  abdomen: { id: 'abdomen', name: '배·골반',     zoomOrg: 'center 42%', zoomScale: 2.2 },
-  back:    { id: 'back',    name: '등·허리',     zoomOrg: 'center 38%', zoomScale: 2 },
-  arms:    { id: 'arms',    name: '팔·손',       zoomOrg: 'center 42%', zoomScale: 1.5 },
-  legs:    { id: 'legs',    name: '다리·발',     zoomOrg: 'center 78%', zoomScale: 2 },
-};
 
-// ── 좌/우 통합 완료 (22 → 14개) ──
+
+// ── 좌/우 통합 (14개) · 마케팅 카피 적용 ──
 const SUB_PARTS: Record<string, SubPartData> = {
-  head_main:    { name: '머리',         group: 'head',    symptoms: [{ title: '지끈지끈 두통·스트레스', point: '백회혈' }, { title: '머리가 멍하고 어지러움', point: '풍지혈' }] },
-  eyes:         { name: '눈',           group: 'head',    symptoms: [{ title: '눈 피로·침침함', point: '찬죽혈' }, { title: '눈 충혈·건조함', point: '태양혈' }, { title: '눈 떨림·안면 경련', point: '사백혈' }] },
-  neck:         { name: '목',           group: 'head',    symptoms: [{ title: '뒷목 뻐근함·거북목', point: '천주혈' }] }, // ✅ 견정혈→천주혈
-  shoulder:     { name: '어깨',         group: 'chest',   note: '양쪽 동일하게 적용', symptoms: [{ title: '어깨 결림·뭉침', point: '견정혈' }, { title: '날개뼈 주변 통증', point: '천종혈' }] },
-  chest_main:   { name: '가슴',         group: 'chest',   symptoms: [{ title: '가슴 답답함·화병', point: '단중혈' }, { title: '호흡이 얕고 불안함', point: '옥당혈' }] }, // ✅ 전중혈→옥당혈
-  abdomen_main: { name: '상복부',       group: 'abdomen', symptoms: [{ title: '소화불량·급체', point: '중완혈' }, { title: '속쓰림·위장장애', point: '거궐혈' }] },
-  pelvis:       { name: '하복부·골반',   group: 'abdomen', symptoms: [{ title: '생리통·아랫배 냉증', point: '관원혈(단전)' }, { title: '변비·장 기능 저하', point: '천추혈' }] },
-  back_upper:   { name: '등',           group: 'back',    symptoms: [{ title: '등 뻐근함·담 결림', point: '풍문혈' }] },
-  back_lower:   { name: '허리',         group: 'back',    symptoms: [{ title: '만성 허리 통증', point: '신수혈' }, { title: '허리 삐끗·급성 요통', point: '요양관혈' }, { title: '엉덩이~다리 뻗치는 통증', point: '환도혈' }] }, // ✅ 좌골신경통 → 일상 표현
-  arm_upper:    { name: '윗팔',         group: 'arms',    note: '양쪽 동일하게 적용', symptoms: [{ title: '어깨부터 팔까지 저림', point: '견우혈' }] },
-  arm_lower:    { name: '아랫팔',       group: 'arms',    note: '양쪽 동일하게 적용', symptoms: [{ title: '팔뚝 시큰거림', point: '수삼리혈' }, { title: '손목 쓸 때 찌릿찌릿', point: '내관혈' }] }, // ✅ 손목터널증후군 → 일상 표현
-  hand:         { name: '손',           group: 'arms',    note: '양쪽 동일하게 적용', symptoms: [{ title: '체했을 때 (다용도 혈자리)', point: '합곡혈' }, { title: '수족냉증·긴장 완화', point: '노궁혈' }] }, // ✅ 만병통치 → 다용도 혈자리
-  leg_upper:    { name: '허벅지',       group: 'legs',    note: '양쪽 동일하게 적용', symptoms: [{ title: '허벅지 피로감·저림', point: '풍시혈' }] },
-  leg_lower:    { name: '종아리',       group: 'legs',    note: '양쪽 동일하게 적용', symptoms: [{ title: '다리 부종·밤에 쥐날 때', point: '승산혈' }, { title: '하체 무력감·피로', point: '족삼리혈' }] },
-  foot:         { name: '발',           group: 'legs',    note: '양쪽 동일하게 적용', symptoms: [{ title: '전신 피로 회복·발바닥 통증', point: '용천혈' }, { title: '불면증·마음 안정', point: '태충혈' }] },
+  head_main:    { name: '머리',         group: 'head',    symptoms: [{ title: '야근 후 머리가 깨질 것 같을 때', point: '백회혈' }, { title: '숙취로 세상이 빙글빙글', point: '풍지혈' }] },
+  eyes:         { name: '눈',           group: 'head',    symptoms: [{ title: '릴스 3시간 정주행 후 눈이 뻑뻑', point: '찬죽혈' }, { title: '렌즈 끼고 하루종일 버텼더니', point: '태양혈' }, { title: '눈 밑이 파르르 떨릴 때', point: '사백혈' }] },
+  neck:         { name: '목',           group: 'head',    symptoms: [{ title: '거북목 45도, 뒷목이 돌처럼', point: '천주혈' }] },
+  shoulder:     { name: '어깨',         group: 'chest',   note: '양쪽 동일하게 적용', symptoms: [{ title: '어깨가 귀까지 올라온 느낌', point: '견정혈' }, { title: '날개뼈 사이가 돌덩이인 것 같을 때', point: '천종혈' }] },
+  chest_main:   { name: '가슴',         group: 'chest',   symptoms: [{ title: '가슴이 꽉 막혀서 한숨만 나올 때', point: '단중혈' }, { title: '숨이 얕아서 답답할 때', point: '옥당혈' }] },
+  abdomen_main: { name: '상복부',       group: 'abdomen', symptoms: [{ title: '급체! 속이 꽉 막혔을 때', point: '중완혈' }, { title: '매운 거 먹고 속이 쓰릴 때', point: '거궐혈' }] },
+  pelvis:       { name: '하복부·골반',   group: 'abdomen', symptoms: [{ title: '생리통에 이불 속 웅크리고 있을 때', point: '관원혈(단전)' }, { title: '화장실 3일째 소식 없을 때 💩', point: '천추혈' }] },
+  back_upper:   { name: '등',           group: 'back',    symptoms: [{ title: '등에 담 걸려서 고개도 못 돌릴 때', point: '풍문혈' }] },
+  back_lower:   { name: '허리',         group: 'back',    symptoms: [{ title: '허리가 90세 할머니 같을 때', point: '신수혈' }, { title: '허리 삐끗! 움직일 수가 없어', point: '요양관혈' }, { title: '엉덩이부터 다리까지 전기 오는 느낌', point: '환도혈' }] },
+  arm_upper:    { name: '윗팔',         group: 'arms',    note: '양쪽 동일하게 적용', symptoms: [{ title: '어깨부터 팔끝까지 찌릿찌릿', point: '견우혈' }] },
+  arm_lower:    { name: '아랫팔',       group: 'arms',    note: '양쪽 동일하게 적용', symptoms: [{ title: '마우스 하루종일 잡고 있었더니', point: '수삼리혈' }, { title: '키보드 치다가 손목이 찌릿', point: '내관혈' }] },
+  hand:         { name: '손',           group: 'arms',    note: '양쪽 동일하게 적용', symptoms: [{ title: '체했을 때 국민 응급 혈자리', point: '합곡혈' }, { title: '손이 얼음장! 겨울 아닌데...', point: '노궁혈' }] },
+  leg_upper:    { name: '허벅지',       group: 'legs',    note: '양쪽 동일하게 적용', symptoms: [{ title: '스쿼트 후 허벅지가 남의 다리', point: '풍시혈' }] },
+  leg_lower:    { name: '종아리',       group: 'legs',    note: '양쪽 동일하게 적용', symptoms: [{ title: '하루종일 서 있었더니 다리 퉁퉁', point: '승산혈' }, { title: '계단 오를 힘도 없을 때', point: '족삼리혈' }] },
+  foot:         { name: '발',           group: 'legs',    note: '양쪽 동일하게 적용', symptoms: [{ title: '만보 걷고 발바닥이 불날 때', point: '용천혈' }, { title: '새벽 3시, 양 세다 지쳤을 때', point: '태충혈' }] },
 };
 
-// ── 혈자리 상세 정보 (촌→손가락 마디 통일, 의학용어 순화) ──
+// ── 혈자리 상세 정보 (한글 이름만 · 마케팅 태그라인 포함) ──
 const POINT_DETAILS: Record<string, PointDetail> = {
   '백회혈': {
-    name: '백회혈 (百會穴, GV20)',
+    name: '백회혈',
+    tagline: '머리 위의 리셋 버튼 🔄',
     location: '정수리 꼭대기, 양쪽 귀를 연결하는 선과 코에서 뒤통수로 넘어가는 선이 만나는 점',
     method: '검지와 중지로 부드럽게 원을 그리며 지압합니다. 숨을 내쉬면서 천천히 눌러주세요.',
     duration: '3~5초간 누르고 2초 쉬기',
@@ -84,24 +73,26 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['긴장성 두통 완화', '스트레스 해소', '정신 맑아짐', '혈액순환 촉진'],
   },
   '풍지혈': {
-    name: '풍지혈 (風池穴, GB20)',
-    location: '뒷머리 아래, 목 뒤 양쪽 움푹 들어간 부분 (후두부 아래 좌우 오목한 곳)',
+    name: '풍지혈',
+    tagline: '숙취 해장의 비밀 포인트 💫',
+    location: '뒷머리 아래, 목 뒤 양쪽 움푹 들어간 부분',
     method: '양쪽 엄지로 두개골 방향(위쪽)으로 눌러줍니다.',
     duration: '5~7초간 지속 압박',
     repetitions: '8~10회 반복',
     effects: ['어지러움 완화', '두통 해소', '목 뒤 긴장 해소', '혈액순환 촉진'],
   },
-  // ✅ 신규: 천주혈 (목 전용)
   '천주혈': {
-    name: '천주혈 (天柱穴, BL10)',
-    location: '뒷목 중앙, 머리카락이 시작되는 지점에서 양쪽으로 손가락 한 마디 반(약 3cm) 바깥, 목 뒤 두꺼운 근육 바깥쪽 오목한 곳',
-    method: '양쪽 엄지를 목 뒤에 대고 두개골 방향(위쪽)으로 천천히 눌러줍니다. 고개를 살짝 숙이면 찾기 쉬워요.',
+    name: '천주혈',
+    tagline: '거북목 잡는 킬러 포인트 🐢',
+    location: '뒷목 중앙, 머리카락이 시작되는 지점에서 양쪽으로 약 3cm 바깥, 목 뒤 근육 바깥쪽 오목한 곳',
+    method: '양쪽 엄지를 목 뒤에 대고 위쪽으로 천천히 눌러줍니다. 고개를 살짝 숙이면 찾기 쉬워요.',
     duration: '5~7초간 지속 압박',
     repetitions: '8~10회 반복',
     effects: ['뒷목 뻐근함 해소', '거북목 통증 완화', '두통 완화', '목 피로 해소'],
   },
   '견정혈': {
-    name: '견정혈 (肩井穴, GB21)',
+    name: '견정혈',
+    tagline: '어깨 돌멩이 부수는 혈 🪨',
     location: '목과 어깨 끝의 중간 지점, 어깨 위쪽의 가장 높은 곳',
     method: '반대편 손의 중지로 어깨 위를 강하게 누릅니다.',
     duration: '5~7초간 누르기',
@@ -109,48 +100,53 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['어깨 결림 해소', '어깨 뭉침 완화', '상체 혈액순환', '목·어깨 긴장 이완'],
   },
   '단중혈': {
-    name: '단중혈 (膻中穴, CV17)',
-    location: '양쪽 유두를 연결하는 선의 정중앙, 가슴뼈(흉골) 위',
-    method: '검지와 중지로 흉골 위를 부드럽게 원형으로 문질러줍니다.',
+    name: '단중혈',
+    tagline: '답답한 마음의 환기구 🌬️',
+    location: '양쪽 유두를 연결하는 선의 정중앙, 가슴뼈 위',
+    method: '검지와 중지로 가슴뼈 위를 부드럽게 원형으로 문질러줍니다.',
     duration: '5초간 누르기',
     repetitions: '10~15회 반복',
     effects: ['가슴 답답함 해소', '화병 완화', '기혈 순환 촉진', '정서 안정'],
   },
-  // ✅ 전중혈 삭제, 옥당혈 신규 추가
   '옥당혈': {
-    name: '옥당혈 (玉堂穴, CV18)',
-    location: '가슴뼈(흉골) 위, 단중혈에서 위로 손가락 한 마디 반(약 3cm) 지점',
+    name: '옥당혈',
+    tagline: '깊은 숨의 시작점 🫁',
+    location: '가슴뼈 위, 단중혈에서 위로 약 3cm 지점',
     method: '손바닥을 가슴에 대고 따뜻하게 감싸면서 부드럽게 시계 방향으로 문질러줍니다.',
     duration: '7~10초간 부드럽게 누르기',
     repetitions: '10~12회 반복',
     effects: ['호흡 안정', '가슴 답답함 해소', '기관지 건강', '심폐 기능 강화'],
   },
   '중완혈': {
-    name: '중완혈 (中脘穴, CV12)',
-    location: '배꼽과 명치(갈비뼈 아래 움푹한 곳)의 정중앙',
+    name: '중완혈',
+    tagline: '속이 뻥 뚫리는 혈 🍽️',
+    location: '배꼽과 명치의 정중앙',
     method: '손바닥으로 시계 방향으로 부드럽게 문질러줍니다.',
     duration: '5~10초간 부드럽게 누르기',
     repetitions: '15~20회 반복',
     effects: ['소화 촉진', '위장 기능 강화', '속쓰림 완화', '복부 불쾌감 해소'],
   },
   '거궐혈': {
-    name: '거궐혈 (巨闕穴, CV14)',
-    location: '명치 바로 아래 움푹 파인 곳, 갈비뼈가 만나는 지점 바로 아래', // ✅ 6촌 제거
+    name: '거궐혈',
+    tagline: '매운맛 뒤처리 전문 🌶️',
+    location: '명치 바로 아래 움푹 파인 곳, 갈비뼈가 만나는 지점 바로 아래',
     method: '검지와 중지로 명치 아래를 부드럽게 눌러줍니다. 식후 30분 후에 시행하세요.',
     duration: '3~5초간 누르기',
     repetitions: '10~12회 반복',
     effects: ['속쓰림 완화', '위산 역류 개선', '위장 기능 안정', '소화 촉진'],
   },
   '관원혈(단전)': {
-    name: '관원혈 (關元穴, CV4)',
-    location: '배꼽에서 아래로 손가락 네 마디(약 7cm) 떨어진 하복부',
+    name: '관원혈',
+    tagline: '하복부 온열 패드 🔥',
+    location: '배꼽에서 아래로 약 7cm 떨어진 하복부',
     method: '손바닥을 대고 따뜻하게 감싸면서 부드럽게 시계 방향으로 누릅니다.',
     duration: '7~10초간 지속 압박',
     repetitions: '10~15회 반복',
     effects: ['생리통 완화', '하복부 냉증 개선', '자궁 건강', '기력 회복'],
   },
   '견우혈': {
-    name: '견우혈 (肩髃穴, LI15)',
+    name: '견우혈',
+    tagline: '팔 저림 차단기 ⚡',
     location: '어깨 끝에서 약간 앞쪽 아래, 팔을 들면 나타나는 오목한 곳',
     method: '반대편 손으로 어깨 앞쪽 오목한 부분을 엄지로 꾹 눌러줍니다.',
     duration: '5초간 누르고 3초 쉬기',
@@ -158,23 +154,26 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['어깨~팔 저림 완화', '어깨 통증 해소', '상지 혈행 촉진', '관절 유연성 개선'],
   },
   '수삼리혈': {
-    name: '수삼리혈 (手三里穴, LI10)',
-    location: '팔꿈치 바깥쪽 주름에서 손목 방향으로 손가락 세 마디(약 5cm) 아래',
+    name: '수삼리혈',
+    tagline: '마우스 팔 구원혈 🖱️',
+    location: '팔꿈치 바깥쪽 주름에서 손목 방향으로 약 5cm 아래',
     method: '반대편 엄지로 팔 바깥쪽을 세게 눌러줍니다.',
     duration: '5~7초간 누르기',
     repetitions: '10~15회 반복 (양쪽)',
     effects: ['팔뚝 통증 완화', '팔 피로 해소', '소화 기능 보조', '상지 혈행 촉진'],
   },
   '합곡혈': {
-    name: '합곡혈 (合谷穴, LI4)',
-    location: '엄지와 검지 사이 물갈퀴 부분에서 검지뼈를 따라 살짝 올라간 움푹 파인 곳', // ✅ 의학용어 순화
+    name: '합곡혈',
+    tagline: '국민 만능 응급 혈자리 🚑',
+    location: '엄지와 검지 사이 물갈퀴 부분에서 검지뼈를 따라 살짝 올라간 움푹 파인 곳',
     method: '반대 손 엄지와 검지로 합곡혈을 잡고 강하게 눌러줍니다.',
     duration: '5~7초간 누르기',
     repetitions: '10~15회 반복 (양손)',
-    effects: ['체기 해소 (다용도 혈자리)', '두통·치통 완화', '면역력 강화', '전신 기혈 순환'], // ✅ 만병통치 → 다용도 혈자리
+    effects: ['체기 해소', '두통·치통 완화', '면역력 강화', '전신 기혈 순환'],
   },
   '노궁혈': {
-    name: '노궁혈 (勞宮穴, PC8)',
+    name: '노궁혈',
+    tagline: '손바닥 핫팩 🤲',
     location: '손바닥 한가운데, 주먹을 쥘 때 중지 끝이 닿는 지점',
     method: '반대쪽 엄지로 손바닥 중앙을 꾹 눌러줍니다.',
     duration: '3~5초간 누르기',
@@ -182,7 +181,8 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['수족냉증 개선', '손 혈액순환 촉진', '긴장 완화', '마음 안정'],
   },
   '풍시혈': {
-    name: '풍시혈 (風市穴, GB31)',
+    name: '풍시혈',
+    tagline: '허벅지 회복의 신 🦵',
     location: '차렷 자세에서 중지 끝이 닿는 허벅지 바깥쪽 지점',
     method: '주먹으로 허벅지 바깥을 가볍게 두드리거나 엄지로 눌러줍니다.',
     duration: '5초간 누르기',
@@ -190,7 +190,8 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['허벅지 피로 해소', '하지 저림 완화', '하체 혈행 촉진', '다리 가벼워짐'],
   },
   '승산혈': {
-    name: '승산혈 (承山穴, BL57)',
+    name: '승산혈',
+    tagline: '퉁퉁 다리 배수구 💧',
     location: '종아리 뒤쪽 중간, 까치발을 들었을 때 종아리 근육이 갈라지는 V자 지점',
     method: '엄지로 종아리 V자 부분을 천천히 강하게 눌러줍니다.',
     duration: '5~7초간 누르기',
@@ -198,15 +199,17 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['다리 부종 완화', '종아리 피로 해소', '혈액순환 촉진', '다리 쥐남 방지'],
   },
   '족삼리혈': {
-    name: '족삼리혈 (足三里穴, ST36)',
-    location: '무릎뼈 바깥쪽 아래 움푹 파인 곳에서 손가락 네 마디(약 7cm) 아래',
+    name: '족삼리혈',
+    tagline: '만보 걸어도 끄떡없는 혈 🏃',
+    location: '무릎뼈 바깥쪽 아래 움푹 파인 곳에서 약 7cm 아래',
     method: '엄지로 정강이 바깥쪽을 세게 눌러줍니다.',
     duration: '5~7초간 누르기',
     repetitions: '10~15회 반복 (양쪽)',
     effects: ['하체 무력감 해소', '소화 기능 강화', '체력 증진', '면역력 향상'],
   },
   '용천혈': {
-    name: '용천혈 (湧泉穴, KI1)',
+    name: '용천혈',
+    tagline: '발바닥 에너지 샘 ⛲',
     location: '발바닥 앞쪽 1/3 지점, 발가락을 구부렸을 때 움푹 파이는 곳',
     method: '엄지로 발바닥을 강하게 눌러줍니다. 취침 전에 하면 효과적입니다.',
     duration: '5~7초간 누르기',
@@ -214,7 +217,8 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['전신 피로 회복', '발바닥 통증 완화', '신장 기능 강화', '하체 냉증 개선'],
   },
   '태충혈': {
-    name: '태충혈 (太衝穴, LR3)',
+    name: '태충혈',
+    tagline: '잠 못 드는 밤의 해결사 🌙',
     location: '발등, 엄지발가락과 둘째 발가락 사이 뼈가 만나는 움푹 파인 곳',
     method: '엄지로 발등의 V자 뼈 사이를 눌러줍니다. 취침 전에 하면 효과적입니다.',
     duration: '3~5초간 누르기',
@@ -222,7 +226,8 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['불면증 개선', '스트레스 해소', '간 기능 안정', '마음 안정·이완'],
   },
   '찬죽혈': {
-    name: '찬죽혈 (攢竹穴, BL2)',
+    name: '찬죽혈',
+    tagline: '눈에 활력 충전소 🔋',
     location: '눈썹 안쪽 끝, 눈썹이 시작되는 움푹 파인 곳',
     method: '양쪽 엄지로 눈썹 안쪽 끝을 부드럽게 원을 그리며 눌러줍니다. 눈을 감고 시행하세요.',
     duration: '3~5초간 누르기',
@@ -230,47 +235,53 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['눈 피로 해소', '시력 보호', '두통 완화', '눈 주위 혈행 촉진'],
   },
   '태양혈': {
-    name: '태양혈 (太陽穴, EX-HN5)',
-    location: '눈꼬리와 눈썹 끝 사이에서 손가락 한 마디 정도(약 2cm) 뒤쪽, 관자놀이 움푹 파인 곳', // ✅ 1촌→손가락 한 마디
+    name: '태양혈',
+    tagline: '관자놀이의 쿨링 스팟 ❄️',
+    location: '눈꼬리와 눈썹 끝 사이에서 약 2cm 뒤쪽, 관자놀이 움푹 파인 곳',
     method: '양쪽 검지로 관자놀이를 부드럽게 원형으로 마사지합니다.',
     duration: '5~7초간 부드럽게 누르기',
     repetitions: '10~15회 반복',
     effects: ['눈 충혈 완화', '안구 건조 개선', '편두통 완화', '눈 주위 긴장 해소'],
   },
   '사백혈': {
-    name: '사백혈 (四白穴, ST2)',
-    location: '눈동자 바로 아래, 눈 아래뼈 가장자리에서 손가락 한 마디 정도(약 2cm) 아래 움푹한 곳', // ✅ 1촌→손가락 한 마디
+    name: '사백혈',
+    tagline: '눈 떨림 진정 포인트 👁️',
+    location: '눈동자 바로 아래, 눈 아래뼈에서 약 2cm 아래 움푹한 곳',
     method: '검지로 눈 아래를 부드럽게 눌러줍니다. 강하게 누르지 마세요.',
     duration: '3~5초간 부드럽게 누르기',
     repetitions: '10~12회 반복',
     effects: ['눈 떨림 완화', '안면 경련 해소', '눈 피로 회복', '안면 혈행 촉진'],
   },
   '천종혈': {
-    name: '천종혈 (天宗穴, SI11)',
-    location: '등 뒤쪽 날개뼈 중앙의 움푹 파인 곳, 손을 뒤로 돌려 만지면 찾기 쉬움',
+    name: '천종혈',
+    tagline: '날개뼈 통증 해결사 🦴',
+    location: '등 뒤쪽 날개뼈 중앙의 움푹 파인 곳',
     method: '테니스공을 벽과 등 사이에 놓고 문지르거나, 반대편 손으로 날개뼈 중앙을 눌러줍니다.',
     duration: '5~7초간 누르기',
     repetitions: '10~15회 반복 (양쪽)',
     effects: ['어깨 뭉침 해소', '날개뼈 통증 완화', '상체 혈행 촉진', '어깨 유연성 개선'],
   },
   '풍문혈': {
-    name: '풍문혈 (風門穴, BL12)',
-    location: '등 위쪽, 목 아래 두 번째 뼈 양옆 손가락 한 마디 반(약 3cm) 지점', // ✅ 1.5촌→손가락 한 마디 반
+    name: '풍문혈',
+    tagline: '담 걸렸을 때 119 🚨',
+    location: '등 위쪽, 목 아래 두 번째 뼈 양옆 약 3cm 지점',
     method: '테니스공 두 개를 양말에 넣어 등 아래에 놓고 굴리거나, 파트너가 엄지로 눌러줍니다.',
     duration: '5~7초간 눌러 풀기',
     repetitions: '10~12회 반복',
     effects: ['등 뻐근함 해소', '담 결림 완화', '감기 예방', '등 근육 이완'],
   },
   '신수혈': {
-    name: '신수혈 (腎兪穴, BL23)',
-    location: '허리 양쪽, 배꼽 높이 척추뼈 양옆 손가락 한 마디 반(약 3cm) 지점', // ✅ 1.5촌→손가락 한 마디 반
+    name: '신수혈',
+    tagline: '허리의 충전기 🔌',
+    location: '허리 양쪽, 배꼽 높이 척추뼈 양옆 약 3cm 지점',
     method: '양손 주먹으로 허리 양쪽을 가볍게 두드리거나, 엄지로 눌러줍니다.',
     duration: '5~10초간 지속 압박',
     repetitions: '15~20회 반복',
     effects: ['만성 허리 통증 완화', '신장 기능 강화', '기력 회복', '하체 냉증 개선'],
   },
   '요양관혈': {
-    name: '요양관혈 (腰陽關穴, GV3)',
+    name: '요양관혈',
+    tagline: '삐끗! 긴급 허리 구조대 🆘',
     location: '허리 정중앙, 골반 위쪽 높이의 척추 한가운데',
     method: '엄지 또는 손바닥으로 허리 중앙을 눌러주고, 따뜻하게 감싸줍니다.',
     duration: '7~10초간 지속 압박',
@@ -278,24 +289,27 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     effects: ['급성 요통 완화', '허리 유연성 개선', '하체 혈행 촉진', '허리 온기 보충'],
   },
   '환도혈': {
-    name: '환도혈 (環跳穴, GB30)',
-    location: '엉덩이 바깥쪽, 옆으로 누웠을 때 엉덩이에서 가장 튀어나온 뼈와 꼬리뼈 사이 오목한 곳', // ✅ 의학용어 순화
+    name: '환도혈',
+    tagline: '엉덩이 통증 해결사 🍑',
+    location: '엉덩이 바깥쪽, 옆으로 누웠을 때 가장 튀어나온 뼈와 꼬리뼈 사이 오목한 곳',
     method: '테니스공 위에 엉덩이를 올려놓고 체중으로 눌러주거나, 엄지로 강하게 눌러줍니다.',
     duration: '5~7초간 누르기',
     repetitions: '10~12회 반복 (양쪽)',
     effects: ['엉덩이~다리 통증 완화', '엉덩이 뻐근함 해소', '하지 혈행 촉진', '고관절 유연성 개선'],
   },
   '천추혈': {
-    name: '천추혈 (天樞穴, ST25)',
-    location: '배꼽 양옆 손가락 두 마디(약 4cm) 지점', // ✅ 2촌→손가락 두 마디
+    name: '천추혈',
+    tagline: '장 운동 시동 버튼 💩',
+    location: '배꼽 양옆 약 4cm 지점',
     method: '검지와 중지로 배꼽 양쪽을 동시에 부드럽게 눌러줍니다. 시계 방향으로 문질러도 좋습니다.',
     duration: '5~7초간 부드럽게 누르기',
     repetitions: '15~20회 반복',
     effects: ['변비 해소', '장 기능 활성화', '복부 팽만감 완화', '소화 촉진'],
   },
   '내관혈': {
-    name: '내관혈 (內關穴, PC6)',
-    location: '손목 안쪽 주름에서 팔꿈치 방향으로 손가락 세 마디(약 5cm) 위, 두 힘줄 사이',
+    name: '내관혈',
+    tagline: '손목의 수호자 🛡️',
+    location: '손목 안쪽 주름에서 팔꿈치 방향으로 약 5cm 위, 두 힘줄 사이',
     method: '반대 손 엄지로 손목 안쪽을 부드럽게 눌러줍니다.',
     duration: '3~5초간 누르기',
     repetitions: '10~15회 반복 (양손)',
@@ -303,14 +317,16 @@ const POINT_DETAILS: Record<string, PointDetail> = {
   },
 };
 
-// ── ✅ 신규: 상황별 바로가기 ──
+// ── 상황별 바로가기 (마케팅 카피) ──
 const SITUATION_SHORTCUTS: SituationShortcut[] = [
-  { icon: '😰', title: '시험·면접 전 긴장',   desc: '마음 안정 + 집중력',        partId: 'hand',         symptomTitle: '수족냉증·긴장 완화' },
-  { icon: '🍺', title: '회식 후 더부룩할 때',   desc: '소화 촉진 + 위장 안정',     partId: 'abdomen_main', symptomTitle: '소화불량·급체' },
-  { icon: '😴', title: '잠이 안 올 때',        desc: '수면 유도 + 이완',          partId: 'foot',         symptomTitle: '불면증·마음 안정' },
-  { icon: '📱', title: '폰·PC 오래 봤을 때',    desc: '눈 피로 + 목 풀기',         partId: 'eyes',         symptomTitle: '눈 피로·침침함' },
-  { icon: '💢', title: '생리통이 심할 때',       desc: '하복부 온기 + 통증 완화',    partId: 'pelvis',       symptomTitle: '생리통·아랫배 냉증' },
-  { icon: '😫', title: '온몸이 찌뿌둥할 때',     desc: '전신 순환 + 기력 충전',      partId: 'foot',         symptomTitle: '전신 피로 회복·발바닥 통증' },
+  { icon: '💩', title: '급똥 마려울 때',          desc: '장 운동 즉시 ON',            partId: 'pelvis',       symptomTitle: '화장실 3일째 소식 없을 때 💩' },
+  { icon: '🧠', title: '고도의 집중력 필요할 때',   desc: '정신 맑아짐 + 집중 MAX',     partId: 'head_main',    symptomTitle: '야근 후 머리가 깨질 것 같을 때' },
+  { icon: '😰', title: '면접 5분 전 심장 폭발',    desc: '긴장 해소 + 마음 안정',       partId: 'hand',         symptomTitle: '손이 얼음장! 겨울 아닌데...' },
+  { icon: '🍺', title: '술 먹고 다음 날 지옥',     desc: '숙취 해소 + 속 안정',        partId: 'abdomen_main', symptomTitle: '급체! 속이 꽉 막혔을 때' },
+  { icon: '📱', title: '릴스 무한스크롤 후유증',    desc: '눈 피로 + 목 풀기',          partId: 'eyes',         symptomTitle: '릴스 3시간 정주행 후 눈이 뻑뻑' },
+  { icon: '😴', title: '새벽 유튜브 끊을 수 없을 때', desc: '수면 유도 + 이완',          partId: 'foot',         symptomTitle: '새벽 3시, 양 세다 지쳤을 때' },
+  { icon: '💢', title: '자궁이 날 공격할 때',      desc: '하복부 온기 + 통증 완화',     partId: 'pelvis',       symptomTitle: '생리통에 이불 속 웅크리고 있을 때' },
+  { icon: '😫', title: '월요일 아침 온몸 찌뿌둥',   desc: '전신 순환 + 기력 충전',       partId: 'foot',         symptomTitle: '만보 걷고 발바닥이 불날 때' },
 ];
 
 
@@ -323,8 +339,8 @@ function IntroOverlay({ onStart }: { onStart: () => void }) {
     <motion.div
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-gradient-to-b from-teal-50 via-white to-emerald-50/40 dark:from-[#0a1a18] dark:via-[#1C1C1E] dark:to-[#0d1f1a]"
       initial={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 1.05 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      exit={{ opacity: 0, y: -30, filter: 'blur(8px)' }}
+      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
     >
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
@@ -406,6 +422,19 @@ function IntroOverlay({ onStart }: { onStart: () => void }) {
         >
           시작하기 →
         </motion.button>
+
+        {/* 하단 스크롤 힌트 */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0.4, 0] }}
+          transition={{ delay: 2.5, duration: 2.5, repeat: Infinity }}
+          className="mt-14 flex flex-col items-center gap-1"
+        >
+          <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 500 }}>또는 아래로 스크롤</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-gray-400 dark:text-gray-500">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </motion.div>
       </motion.div>
     </motion.div>
   );
@@ -477,6 +506,9 @@ function ResultDetail({
               <h3 className="text-white text-[16px] md:text-[18px] tracking-tight !leading-snug" style={{ fontWeight: 800 }}>
                 {point.name}
               </h3>
+              {point.tagline && (
+                <p className="text-teal-100/80 text-[12px] mt-1" style={{ fontWeight: 500 }}>{point.tagline}</p>
+              )}
             </div>
           </div>
         </div>
@@ -667,7 +699,7 @@ export default function App() {
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // 다크모드 시스템 감지
   useEffect(() => {
@@ -682,29 +714,21 @@ export default function App() {
   }, []);
 
   // 바디맵 상태
-  const [zoomLevel, setZoomLevel] = useState<string>('full');
   const [hoveredPartId, setHoveredPartId] = useState<string | null>(null);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [searchQuery, setSearchQuery] = useState('');
 
   const [activeResult, setActiveResult] = useState<{ partId: string; symptom: SymptomData } | null>(null);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
+  // 햅틱 피드백
+  const triggerHaptic = useCallback((ms = 15) => {
+    try { navigator?.vibrate?.(ms); } catch {}
   }, []);
 
-  // ✅ 개선된 클릭 핸들러: 존 마커 vs 세부 마커 구분
+  // 클릭 핸들러
   const handlePartClick = (id: string) => {
-    if (id.startsWith('zone_')) {
-      // 2D 존 마커 클릭 → 해당 그룹으로 줌
-      const group = id.replace('zone_', '');
-      setZoomLevel(group);
-      setSelectedPartId(null);
-      setActiveResult(null);
-      setMobilePanel(true);
-    } else if (SUB_PARTS[id]) {
-      // 세부 마커 클릭 (2D 줌뷰 또는 3D) → 해당 파트 선택
+    triggerHaptic(20);
+    if (SUB_PARTS[id]) {
       setSelectedPartId(id);
       setActiveResult(null);
       setMobilePanel(true);
@@ -712,6 +736,7 @@ export default function App() {
   };
 
   const handleSymptomClick = (partId: string, symptom: SymptomData) => {
+    triggerHaptic(15);
     setActiveResult({ partId, symptom });
     setMobilePanel(true);
   };
@@ -721,7 +746,6 @@ export default function App() {
     const part = SUB_PARTS[shortcut.partId];
     const symptom = part.symptoms.find(s => s.title === shortcut.symptomTitle);
     if (symptom) {
-      setZoomLevel(part.group);
       setSelectedPartId(shortcut.partId);
       handleSymptomClick(shortcut.partId, symptom);
     }
@@ -730,7 +754,7 @@ export default function App() {
   const handleRestart = () => {
     setShowDisclaimer(false);
     setShowIntro(true);
-    setZoomLevel('full');
+    setShowOnboarding(false);
     setSelectedPartId(null);
     setHoveredPartId(null);
     setSearchQuery('');
@@ -754,31 +778,22 @@ export default function App() {
   };
   const searchResults = getSearchResults();
 
-  // 마우스 툴팁 텍스트
-  let tooltipText: string | null = null;
-  if (hoveredPartId) {
-    if (hoveredPartId.startsWith('zone_')) {
-      const group = hoveredPartId.replace('zone_', '');
-      tooltipText = BODY_GROUPS[group]?.name ?? null;
-    } else if (SUB_PARTS[hoveredPartId]) {
-      tooltipText = SUB_PARTS[hoveredPartId].name;
-      if (SUB_PARTS[hoveredPartId].note) {
-        tooltipText += ` (${SUB_PARTS[hoveredPartId].note})`;
-      }
-    }
-  }
 
-  // 줌된 그룹에 속하는 세부 파트 목록
-  const zoomedParts = zoomLevel !== 'full'
-    ? Object.entries(SUB_PARTS).filter(([, v]) => v.group === zoomLevel)
-    : [];
+
+  // 진행 단계 계산 (1~5)
+  const STEP_LABELS = ['인트로', '바디맵', '증상 선택', '결과 상세', '면책/공유'];
+  const currentStep = showIntro ? 0
+    : showDisclaimer ? 4
+    : activeResult ? 3
+    : selectedPartId ? 2
+    : 1;
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
       <Toaster position="top-center" richColors />
 
       <AnimatePresence>
-        {showIntro && <IntroOverlay onStart={() => setShowIntro(false)} />}
+        {showIntro && <IntroOverlay onStart={() => { setShowIntro(false); setShowOnboarding(true); }} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -787,8 +802,76 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* 온보딩 오버레이 */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-end md:items-center justify-center p-6 pb-12 md:pb-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowOnboarding(false)} />
+            <motion.div
+              className="relative bg-white dark:bg-[#2C2C2E] rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center"
+              initial={{ y: 50, scale: 0.95, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 50, scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            >
+              {/* 안내 일러스트 */}
+              <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/20 border border-teal-100/50 dark:border-teal-800/30 flex items-center justify-center">
+                <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
+                  <circle cx="24" cy="10" r="5" fill="#D1D5DB" />
+                  <path d="M24 17C19.5 17 16 22 16 28L19 40H29L32 28C32 22 28.5 17 24 17Z" fill="#D1D5DB" />
+                  <circle cx="24" cy="26" r="3" fill="#0D9488" opacity="0.9">
+                    <animate attributeName="r" values="2.5;4;2.5" dur="1.5s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx="20" cy="22" r="2" fill="#0D9488" opacity="0.4">
+                    <animate attributeName="opacity" values="0.2;0.6;0.2" dur="1.5s" begin="0.3s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx="28" cy="22" r="2" fill="#0D9488" opacity="0.4">
+                    <animate attributeName="opacity" values="0.2;0.6;0.2" dur="1.5s" begin="0.6s" repeatCount="indefinite" />
+                  </circle>
+                  {/* 손가락 커서 */}
+                  <g>
+                    <animateTransform attributeName="transform" type="translate" values="6,8; 0,0; 6,8" dur="2s" repeatCount="indefinite" />
+                    <path d="M30 32 L34 28 L36 30 L32 34 Z" fill="#6B7280" opacity="0.7" />
+                    <circle cx="34" cy="28" r="2" fill="#6B7280" opacity="0.5" />
+                  </g>
+                </svg>
+              </div>
+
+              <h3 className="text-[18px] text-gray-900 dark:text-gray-100 mb-2 tracking-tight" style={{ fontWeight: 700 }}>
+                빛나는 부위를 터치하세요
+              </h3>
+              <p className="text-[14px] text-gray-500 dark:text-gray-400 mb-5 !leading-[1.7]" style={{ fontWeight: 400 }}>
+                인체 모델 위의 <span className="text-teal-600 dark:text-teal-400" style={{ fontWeight: 600 }}>초록빛 점</span>을 터치하면<br />
+                해당 부위의 증상과 혈자리를 확인할 수 있어요.
+              </p>
+
+              <div className="flex gap-2 text-[12px] text-gray-400 dark:text-gray-500 justify-center mb-5 flex-wrap" style={{ fontWeight: 500 }}>
+                <span className="px-2.5 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg">드래그 → 회전</span>
+                <span className="px-2.5 py-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg">핀치 → 확대</span>
+                <span className="px-2.5 py-1 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg">점 터치 → 상세</span>
+              </div>
+
+              <button
+                onClick={() => setShowOnboarding(false)}
+                className="w-full py-3 bg-gradient-to-r from-teal-600 to-emerald-500 text-white rounded-xl text-[15px] cursor-pointer active:scale-[0.98] transition-transform"
+                style={{ fontWeight: 700 }}
+              >
+                알겠어요!
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ===== 메인 레이아웃 ===== */}
-      <div className="flex flex-col md:flex-row h-full w-full bg-[#F2F2F7] dark:bg-[#1C1C1E]" onMouseMove={handleMouseMove}>
+      <div className="flex flex-col md:flex-row h-full w-full bg-[#F2F2F7] dark:bg-[#1C1C1E]">
 
         {/* ─── 좌측 패널 (데스크탑: 사이드바, 모바일: 바텀시트) ─── */}
         <div
@@ -876,7 +959,7 @@ export default function App() {
                           {searchResults.map((res, idx) => (
                             <button
                               key={`${res.partId}-${idx}`}
-                              onClick={() => { setSearchQuery(''); setZoomLevel(SUB_PARTS[res.partId].group); setSelectedPartId(res.partId); handleSymptomClick(res.partId, { title: res.title, point: res.point }); }}
+                              onClick={() => { setSearchQuery(''); setSelectedPartId(res.partId); handleSymptomClick(res.partId, { title: res.title, point: res.point }); }}
                               onMouseEnter={() => setHoveredPartId(res.partId)}
                               onMouseLeave={() => setHoveredPartId(null)}
                               className="w-full text-left bg-white dark:bg-[#2C2C2E] shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-gray-700/50 p-4 rounded-[18px] transition-all duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] active:scale-[0.98] group cursor-pointer"
@@ -931,40 +1014,6 @@ export default function App() {
                         ))}
                       </div>
                     </motion.div>
-                  ) : zoomLevel !== 'full' ? (
-                    /* ── 줌뷰: 해당 그룹의 세부 파트 목록 ── */
-                    <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-                      <h3 className="text-[12px] text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-1 ml-1" style={{ fontWeight: 700 }}>
-                        {BODY_GROUPS[zoomLevel]?.name}
-                      </h3>
-                      <p className="text-[12px] text-gray-400 dark:text-gray-500 mb-3 ml-1" style={{ fontWeight: 400 }}>
-                        세부 부위를 터치하거나 아래에서 선택하세요.
-                      </p>
-                      <div className="space-y-2">
-                        {zoomedParts.map(([partId, partData]) => (
-                          <button
-                            key={partId}
-                            onClick={() => { setSelectedPartId(partId); setMobilePanel(true); }}
-                            onMouseEnter={() => setHoveredPartId(partId)}
-                            onMouseLeave={() => setHoveredPartId(null)}
-                            className="w-full text-left bg-white dark:bg-[#2C2C2E] shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-gray-700/50 p-3.5 rounded-[16px] transition-all duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] active:scale-[0.98] group cursor-pointer"
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[15px] text-gray-800 dark:text-gray-200" style={{ fontWeight: 600 }}>{partData.name}</span>
-                                {partData.note && (
-                                  <span className="text-[10px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>({partData.note})</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 500 }}>{partData.symptoms.length}개 증상</span>
-                                <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-500 group-hover:text-teal-500" strokeWidth={2.5} />
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
                   ) : (
                     /* ── 빈 상태 + 상황별 바로가기 ── */
                     <div className="flex flex-col h-full">
@@ -1014,22 +1063,62 @@ export default function App() {
         {/* ─── 우측: 바디맵 ─── */}
         <div className="flex-1 relative flex flex-col items-center justify-center overflow-hidden min-h-0">
 
+          {/* 진행 표시 바 */}
+          {!showIntro && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 hidden md:flex items-center gap-1.5 px-4 py-2 bg-white/70 dark:bg-[#2C2C2E]/70 backdrop-blur-xl rounded-full border border-white/40 dark:border-gray-600/30 shadow-sm">
+              {STEP_LABELS.map((label, i) => (
+                <div key={label} className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
+                    <div
+                      className="w-2 h-2 rounded-full transition-all duration-500"
+                      style={{
+                        backgroundColor: i <= currentStep ? '#0D9488' : (isDark ? '#4A4A4C' : '#D1D5DB'),
+                        transform: i === currentStep ? 'scale(1.4)' : 'scale(1)',
+                        boxShadow: i === currentStep ? '0 0 8px rgba(13,148,136,0.5)' : 'none',
+                      }}
+                    />
+                    <span
+                      className="text-[10px] transition-colors duration-300"
+                      style={{
+                        color: i === currentStep ? '#0D9488' : (isDark ? '#8E8E93' : '#9CA3AF'),
+                        fontWeight: i === currentStep ? 700 : 500,
+                      }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                  {i < STEP_LABELS.length - 1 && (
+                    <div
+                      className="w-4 h-[1.5px] rounded-full transition-colors duration-500"
+                      style={{ backgroundColor: i < currentStep ? '#0D9488' : (isDark ? '#3A3A3C' : '#E5E7EB') }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* 모바일 상단 바: 타이틀 + 검색 */}
-          <div className="md:hidden absolute top-0 left-0 right-0 z-20 px-5 pb-3 bg-gradient-to-b from-[#F2F2F7] dark:from-[#1C1C1E] via-[#F2F2F7]/90 dark:via-[#1C1C1E]/90 to-transparent" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
+          <div className="md:hidden absolute top-0 left-0 right-0 z-20 px-5 pb-3 bg-gradient-to-b from-[#F2F2F7] dark:from-[#1C1C1E] via-[#F2F2F7]/90 dark:via-[#1C1C1E]/90 to-transparent" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
+            {/* 모바일 진행 도트 */}
+            {!showIntro && (
+              <div className="flex items-center justify-center gap-1.5 mb-2">
+                {STEP_LABELS.map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-1 rounded-full transition-all duration-500"
+                    style={{
+                      width: i === currentStep ? '20px' : '6px',
+                      backgroundColor: i <= currentStep ? '#0D9488' : (isDark ? '#4A4A4C' : '#D1D5DB'),
+                    }}
+                  />
+                ))}
+              </div>
+            )}
             <div className="flex items-center justify-between mb-2.5">
               <h2 className="text-[17px] text-gray-900 dark:text-gray-100 tracking-tight" style={{ fontWeight: 700 }}>
                 어디가 불편하신가요?
               </h2>
-              {viewMode === '2d' && zoomLevel !== 'full' && (
-                <button
-                  onClick={() => { setZoomLevel('full'); setSelectedPartId(null); setHoveredPartId(null); setActiveResult(null); setMobilePanel(false); }}
-                  className="flex items-center gap-1 text-teal-600 dark:text-teal-400 text-[13px] px-3 py-1.5 bg-white/70 dark:bg-[#2C2C2E]/80 backdrop-blur-sm rounded-full border border-white/40 dark:border-gray-600/40 cursor-pointer"
-                  style={{ fontWeight: 600 }}
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  전체
-                </button>
-              )}
             </div>
             <div className="flex items-center bg-white/80 dark:bg-[#2C2C2E]/80 backdrop-blur-sm rounded-[12px] px-3.5 py-2.5 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
               <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" strokeWidth={2.5} />
@@ -1051,74 +1140,14 @@ export default function App() {
             </div>
           </div>
 
-          {/* 2D/3D 토글 + 전체 보기 (데스크탑) */}
-          <div className="absolute top-8 right-8 z-20 hidden md:flex gap-2">
-            {/* 뷰 모드 토글 */}
-            <button
-              onClick={() => { setViewMode(viewMode === '3d' ? '2d' : '3d'); setZoomLevel('full'); setSelectedPartId(null); setHoveredPartId(null); }}
-              className="flex bg-white/70 dark:bg-[#2C2C2E]/80 backdrop-blur-xl border border-white/40 dark:border-gray-600/40 text-gray-800 dark:text-gray-200 px-4 py-2.5 rounded-full text-[13px] shadow-[0_8px_32px_rgba(0,0,0,0.08)] items-center gap-1.5 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
-              style={{ fontWeight: 600 }}
-            >
-              {viewMode === '3d' ? <Layers className="w-4 h-4 text-teal-600 dark:text-teal-400" /> : <Box className="w-4 h-4 text-teal-600 dark:text-teal-400" />}
-              {viewMode === '3d' ? '2D 보기' : '3D 보기'}
-            </button>
-            {/* 전체 보기 (2D 줌 시) */}
-            {viewMode === '2d' && zoomLevel !== 'full' && (
-              <motion.button
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                onClick={() => { setZoomLevel('full'); setSelectedPartId(null); setHoveredPartId(null); setActiveResult(null); setMobilePanel(false); }}
-                className="flex bg-white/70 dark:bg-[#2C2C2E]/80 backdrop-blur-xl border border-white/40 dark:border-gray-600/40 text-gray-800 dark:text-gray-200 px-4 py-2.5 rounded-full text-[13px] shadow-[0_8px_32px_rgba(0,0,0,0.08)] items-center gap-1.5 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer"
-                style={{ fontWeight: 700 }}
-              >
-                <ChevronLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" strokeWidth={2.5} />
-                전체
-              </motion.button>
-            )}
-          </div>
-
-          {/* 모바일 2D/3D 토글 */}
-          <button
-            onClick={() => { setViewMode(viewMode === '3d' ? '2d' : '3d'); setZoomLevel('full'); setSelectedPartId(null); setHoveredPartId(null); }}
-            className="md:hidden absolute top-[calc(env(safe-area-inset-top,0px)+80px)] right-4 z-20 flex bg-white/80 dark:bg-[#2C2C2E]/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-full text-[12px] shadow-sm items-center gap-1 cursor-pointer"
-            style={{ fontWeight: 600 }}
-          >
-            {viewMode === '3d' ? <Layers className="w-3.5 h-3.5" /> : <Box className="w-3.5 h-3.5" />}
-            {viewMode === '3d' ? '2D' : '3D'}
-          </button>
-
-          {/* ── 바디맵 렌더링 ── */}
-          {viewMode === '3d' ? (
-            <BodyMap3D
-              isDark={isDark}
-              hoveredPartId={hoveredPartId}
-              selectedPartId={selectedPartId}
-              onHover={setHoveredPartId}
-              onClick={handlePartClick}
-            />
-          ) : (
-            <BodyMap
-              isDark={isDark}
-              hoveredPartId={hoveredPartId}
-              selectedPartId={selectedPartId}
-              zoomLevel={zoomLevel}
-              searchQuery={searchQuery}
-              searchResultPartIds={searchResults.map(r => r.partId)}
-              bodyGroups={BODY_GROUPS}
-              onHover={setHoveredPartId}
-              onClick={handlePartClick}
-            />
-          )}
-
-          {/* 마우스 따라다니는 툴팁 (2D 전용) */}
-          {viewMode === '2d' && tooltipText && (
-            <div
-              className="fixed z-50 pointer-events-none bg-gray-900/85 dark:bg-gray-100/90 backdrop-blur-md text-white dark:text-gray-900 text-[13px] px-3.5 py-1.5 rounded-lg shadow-xl border border-white/10 dark:border-gray-800/10 whitespace-nowrap hidden md:block"
-              style={{ left: mousePos.x + 15, top: mousePos.y + 15, fontWeight: 600 }}
-            >
-              {tooltipText}
-            </div>
-          )}
+          {/* ── 3D 바디맵 ── */}
+          <BodyMap3D
+            isDark={isDark}
+            hoveredPartId={hoveredPartId}
+            selectedPartId={selectedPartId}
+            onHover={setHoveredPartId}
+            onClick={handlePartClick}
+          />
         </div>
       </div>
     </div>

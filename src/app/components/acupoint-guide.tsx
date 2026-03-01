@@ -1,6 +1,7 @@
 // 혈자리 위치 시각 가이드 다이어그램
 // 각 혈자리에 맞는 피그마 에셋 Frame 컴포넌트를 렌더링합니다.
 
+import type { ComponentType, ReactElement } from 'react';
 import BaekhoeFrame from '../../imports/Frame4';
 import PungjiFrame from '../../imports/Frame5';
 import CheonchuFrame from '../../imports/Frame6';
@@ -23,14 +24,12 @@ export function AcupointGuide({ pointName, accentColor, isDark }: AcupointGuideP
 // 피그마 에셋 Frame 래퍼 – 1024×1024 원본을 260px 컨테이너에 맞춤
 function FrameCard({
   FrameComponent,
-  alt,
   label,
   accent,
   isDark,
   flipX = false,
 }: {
-  FrameComponent: React.ComponentType;
-  alt: string;
+  FrameComponent: ComponentType;
   label: string;
   accent: string;
   isDark: boolean;
@@ -77,13 +76,12 @@ function FrameCard({
 }
 
 // 가이드가 있는 혈자리 목록 (다른 혈자리도 추가 가능)
-const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> = {
+const GUIDES: Record<string, (accent: string, isDark: boolean) => ReactElement> = {
 
   // ──── 백회혈: 정수리 꼭대기 ────
   '백회혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={BaekhoeFrame}
-      alt="백회혈 위치 - 정수리 꼭대기"
       label="양쪽 귀 연결선과 코→뒤통수 선이 만나는 점"
       accent={accent}
       isDark={isDark}
@@ -94,7 +92,6 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
   '풍지혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={PungjiFrame}
-      alt="풍지혈 위치 - 뒷목 양쪽 오목한 곳"
       label="뒷머리뼈 아래 양쪽 움푹 들어간 곳"
       accent={accent}
       isDark={isDark}
@@ -105,7 +102,6 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
   '천추혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={CheonchuFrame}
-      alt="천추혈 위치"
       label="배꼽 양옆 손가락 두 마디(약 4cm) 지점"
       accent={accent}
       isDark={isDark}
@@ -116,7 +112,6 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
   '이문혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={ImunFrame}
-      alt="이문혈 위치 - 귀 앞쪽 오목한 곳"
       label="귀 앞쪽 이주(귀구슬) 위 오목한 곳"
       accent={accent}
       isDark={isDark}
@@ -127,7 +122,6 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
   '청궁혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={ImunFrame}
-      alt="청궁혈 위치 - 귀 앞쪽 오목한 곳"
       label="귀 앞쪽 이주(귀구슬) 앞 오목한 곳"
       accent={accent}
       isDark={isDark}
@@ -138,7 +132,6 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
   '사백혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={SabaekFrame}
-      alt="사백혈 위치 - 눈 아래 오목한 곳"
       label="눈동자 바로 아래 약 1cm 움푹 들어간 곳"
       accent={accent}
       isDark={isDark}
@@ -149,7 +142,6 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
   '예풍혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={AepungFrame}
-      alt="예풍혈 위치 - 귓불 뒤쪽 오목한 곳"
       label="귓불 뒤쪽 뼈와 턱 사이 움푹 들어간 곳"
       accent={accent}
       isDark={isDark}
@@ -160,7 +152,6 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
   '협거혈': (accent, isDark) => (
     <FrameCard
       FrameComponent={AepungFrame}
-      alt="협거혈 위치 - 광대뼈 아래 움푹 들어간 곳"
       label="광대뼈 아래 모서리에서 움푹 들어간 곳"
       accent={accent}
       isDark={isDark}

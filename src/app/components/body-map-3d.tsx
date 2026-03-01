@@ -1,12 +1,14 @@
 // ============================================================
 // 3D 바디맵 — Google Model Viewer
-// 멀티 리플 핫스팟 + 줌인 폭발 이펙트 + 플로팅 배지
+// 성별 전환 + 멀티 리플 핫스팟 + 줌인 폭발 이펙트
 // ============================================================
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-const CALIBRATION_MODE = false;
+const CALIBRATION_MODE = true;
 
-interface Hotspot3D {
+export type Gender = 'male' | 'female';
+
+export interface Hotspot3D {
   id: string;
   slot: string;
   position: string;
@@ -16,10 +18,11 @@ interface Hotspot3D {
   cameraTarget: string;
 }
 
-const DEFAULT_CAMERA_ORBIT = '0deg 80deg 2.5m';
-const DEFAULT_CAMERA_TARGET = 'auto auto auto';
+const DEFAULT_CAMERA_ORBIT = '0deg 80deg 5.0m';
+const DEFAULT_CAMERA_TARGET = '0 -0.1 0';
 
-const HOTSPOTS_3D: Hotspot3D[] = [
+// ── 남성 핫스팟 ──
+const MALE_HOTSPOTS: Hotspot3D[] = [
   { id: 'head_main',    slot: 'hotspot-head',       position: '0.001 1.394 0.102',      normal: '0.019 0.873 0.487',   label: '머리',
     cameraOrbit: '0deg 60deg 1.2m', cameraTarget: '0 1.35 0.05' },
   { id: 'eyes',         slot: 'hotspot-eyes',       position: '-0.058 1.243 0.161',     normal: '-0.588 0.076 0.806',  label: '눈',
@@ -45,28 +48,55 @@ const HOTSPOTS_3D: Hotspot3D[] = [
   { id: 'hand',         slot: 'hotspot-hand',       position: '-1.004 0.270 0.170',     normal: '-0.364 -0.148 0.919', label: '손',
     cameraOrbit: '-40deg 82deg 1.0m', cameraTarget: '-0.8 0.27 0.1' },
   { id: 'leg_upper',    slot: 'hotspot-legupper',   position: '-0.262 -0.131 0.145',    normal: '-0.534 0.044 0.844',  label: '허벅지',
-    cameraOrbit: '-10deg 90deg 1.5m', cameraTarget: '-0.15 -0.1 0.05' },
+    cameraOrbit: '-10deg 88deg 2.5m', cameraTarget: '-0.1 -0.15 0.1' },
   { id: 'leg_lower',    slot: 'hotspot-leglower',   position: '-0.188 -0.890 -0.072',   normal: '0.703 -0.206 0.681',  label: '종아리',
-    cameraOrbit: '-10deg 95deg 1.5m', cameraTarget: '-0.1 -0.8 0' },
+    cameraOrbit: '-8deg 92deg 2.2m', cameraTarget: '-0.1 -0.85 0' },
   { id: 'foot',         slot: 'hotspot-foot',       position: '-0.288 -1.338 0.124',    normal: '-0.253 0.893 0.371',  label: '발',
-    cameraOrbit: '-15deg 100deg 1.2m', cameraTarget: '-0.2 -1.3 0.05' },
+    cameraOrbit: '-10deg 100deg 1.8m', cameraTarget: '-0.15 -1.3 0.05' },
+  { id: 'ear',          slot: 'hotspot-ear',        position: '0.132 1.210 0.013',      normal: '0.678 -0.169 0.716',  label: '귀',
+    cameraOrbit: '-20deg 68deg 1.0m', cameraTarget: '0.1 1.2 0' },
+  { id: 'face',         slot: 'hotspot-face',       position: '0.076 1.145 0.136',      normal: '0.745 -0.142 0.652',  label: '볼',
+    cameraOrbit: '10deg 72deg 1.0m', cameraTarget: '0.05 1.15 0.1' },
+  { id: 'knee',         slot: 'hotspot-knee',       position: '0.238 -0.561 0.067',     normal: '0.343 -0.095 0.934',  label: '무릎',
+    cameraOrbit: '8deg 90deg 2.2m', cameraTarget: '0.15 -0.55 0.08' },
 ];
 
-const MODEL_URL = 'https://raw.githubusercontent.com/didighgh0451-wq/Interactiveacupuncturewebpage/refs/heads/main/public/1.glb';
+// ── 여성 핫스팟 (좌표는 여성 모델 캘리브레이션 후 교체) ──
+const FEMALE_HOTSPOTS: Hotspot3D[] = MALE_HOTSPOTS.map(h => ({ ...h }));
+// TODO: 여성 .glb 캘리브레이션 후 position/normal/cameraOrbit/cameraTarget 교체
+
+export function getHotspotsForGender(gender: Gender): Hotspot3D[] {
+  return gender === 'female' ? FEMALE_HOTSPOTS : MALE_HOTSPOTS;
+}
+
+const MODEL_URLS: Record<Gender, string> = {
+  male: 'https://raw.githubusercontent.com/didighgh0451-wq/Interactiveacupuncturewebpage/refs/heads/main/public/1.glb',
+  female: 'https://raw.githubusercontent.com/didighgh0451-wq/Interactiveacupuncturewebpage/refs/heads/main/public/2.glb',
+};
+
 const VIEWER_SCRIPT = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js';
 
 interface BodyMap3DProps {
   isDark: boolean;
+  gender: Gender;
   hoveredPartId: string | null;
   selectedPartId: string | null;
+  highlightedPartIds: string[];
+  /** 외부에서 카메라를 특정 위치로 이동시킬 때 사용 (카테고리 클릭 등) */
+  focusCameraOrbit?: string | null;
+  focusCameraTarget?: string | null;
   onHover: (id: string | null) => void;
   onClick: (id: string) => void;
 }
 
 export function BodyMap3D({
   isDark,
+  gender,
   hoveredPartId,
   selectedPartId,
+  highlightedPartIds,
+  focusCameraOrbit,
+  focusCameraTarget,
   onHover,
   onClick,
 }: BodyMap3DProps) {
@@ -104,17 +134,10 @@ export function BodyMap3D({
     setShowBurst(true);
     setTimeout(() => setShowBurst(false), 800);
 
-    // 결과 표시 후 자동 줌아웃
+    // 결과 표시 (줌 유지 — 자동 줌아웃 제거)
     setTimeout(() => {
       onClick(hotspot.id);
-    }, 500);
-    setTimeout(() => {
-      mv.setAttribute('interpolation-decay', '200');
-      mv.setAttribute('camera-orbit', DEFAULT_CAMERA_ORBIT);
-      mv.setAttribute('camera-target', DEFAULT_CAMERA_TARGET);
-      setZoomed(false);
-      setZoomedLabel(null);
-    }, 1800);
+    }, 400);
   }, [onClick, triggerHaptic]);
 
   const resetZoom = useCallback(() => {
@@ -125,7 +148,6 @@ export function BodyMap3D({
     mv.setAttribute('interpolation-decay', '100');
     mv.setAttribute('camera-orbit', DEFAULT_CAMERA_ORBIT);
     mv.setAttribute('camera-target', DEFAULT_CAMERA_TARGET);
-    mv.setAttribute('auto-rotate', '');
 
     setZoomed(false);
     setZoomedLabel(null);
@@ -177,18 +199,15 @@ export function BodyMap3D({
     if (viewerRef.current) return;
 
     const mv = document.createElement('model-viewer') as any;
-    mv.setAttribute('src', MODEL_URL);
+    mv.setAttribute('src', MODEL_URLS[gender]);
     mv.setAttribute('camera-controls', '');
     mv.setAttribute('touch-action', 'pan-y');
     mv.setAttribute('shadow-intensity', '0.5');
     mv.setAttribute('camera-orbit', DEFAULT_CAMERA_ORBIT);
     mv.setAttribute('min-camera-orbit', 'auto auto 0.8m');
-    mv.setAttribute('max-camera-orbit', 'auto auto 5m');
-    mv.setAttribute('field-of-view', '30deg');
+    mv.setAttribute('max-camera-orbit', 'auto auto 8m');
+    mv.setAttribute('field-of-view', '50deg');
     mv.setAttribute('interaction-prompt', 'none');
-    mv.setAttribute('auto-rotate', '');
-    mv.setAttribute('auto-rotate-delay', '5000');
-    mv.setAttribute('rotation-per-second', '8deg');
     mv.setAttribute('interpolation-decay', '100');
     mv.setAttribute('alt', '3D 인체 혈자리 모델');
     mv.style.width = '100%';
@@ -216,6 +235,7 @@ export function BodyMap3D({
     }
 
     // 핫스팟 생성 — 멀티 리플 구조
+    const HOTSPOTS_3D = getHotspotsForGender(gender);
     HOTSPOTS_3D.forEach((h, idx) => {
       const btn = document.createElement('button');
       btn.slot = h.slot;
@@ -262,7 +282,7 @@ export function BodyMap3D({
         viewerRef.current = null;
       }
     };
-  }, [ready]);
+  }, [ready, gender]);
 
   // ── 3) 테마 ──
   useEffect(() => {
@@ -282,8 +302,9 @@ export function BodyMap3D({
       const id = btn.dataset.hotspotId;
       btn.classList.toggle('is-hovered', id === hoveredPartId);
       btn.classList.toggle('is-selected', id === selectedPartId);
+      btn.classList.toggle('is-highlighted', highlightedPartIds.includes(id));
     });
-  }, [hoveredPartId, selectedPartId, ready]);
+  }, [hoveredPartId, selectedPartId, highlightedPartIds, ready]);
 
   // ── 5) 이벤트 위임 ──
   useEffect(() => {
@@ -295,7 +316,7 @@ export function BodyMap3D({
       if (target) {
         const id = (target as HTMLElement).dataset.hotspotId;
         if (id) {
-          const hotspot = HOTSPOTS_3D.find(h => h.id === id);
+          const hotspot = getHotspotsForGender(gender).find(h => h.id === id);
           if (hotspot) zoomToHotspot(hotspot);
         }
       }
@@ -326,13 +347,33 @@ export function BodyMap3D({
       container.removeEventListener('pointerenter', handleOver, true);
       container.removeEventListener('pointerleave', handleOut, true);
     };
-  }, [zoomToHotspot, onHover, triggerHaptic]);
+  }, [zoomToHotspot, onHover, triggerHaptic, gender]);
 
   useEffect(() => {
     if (!selectedPartId && zoomed) {
       resetZoom();
     }
   }, [selectedPartId, zoomed, resetZoom]);
+
+  // ── 6) 외부 카메라 포커스 (카테고리 등) ──
+  useEffect(() => {
+    const mv = viewerRef.current as any;
+    if (!mv) return;
+    if (focusCameraOrbit && focusCameraTarget) {
+      mv.setAttribute('interpolation-decay', '120');
+      mv.setAttribute('camera-orbit', focusCameraOrbit);
+      mv.setAttribute('camera-target', focusCameraTarget);
+      setZoomed(true);
+      setZoomedLabel(null);
+    } else if (!focusCameraOrbit && !focusCameraTarget && !selectedPartId) {
+      // 카테고리 해제 시 기본 뷰로 복귀
+      mv.setAttribute('interpolation-decay', '150');
+      mv.setAttribute('camera-orbit', DEFAULT_CAMERA_ORBIT);
+      mv.setAttribute('camera-target', DEFAULT_CAMERA_TARGET);
+      setZoomed(false);
+      setZoomedLabel(null);
+    }
+  }, [focusCameraOrbit, focusCameraTarget, selectedPartId]);
 
   const bgColor = isDark ? '#1C1C1E' : '#F2F2F7';
   const A = '#0D9488';
@@ -446,6 +487,22 @@ export function BodyMap3D({
         @keyframes acu-sel-wave {
           0%   { transform: scale(1); opacity: 0.8; }
           100% { transform: scale(3); opacity: 0; }
+        }
+
+        /* ===== 하이라이트 ===== */
+        .acu-hotspot.is-highlighted {
+          transform: scale(1.1);
+        }
+        .acu-hotspot.is-highlighted .acu-core {
+          width: 14px;
+          height: 14px;
+          background: ${isDark ? 'rgba(94,234,212,0.8)' : 'rgba(13,148,136,0.8)'};
+          border-color: rgba(255,255,255,0.9);
+          box-shadow: 0 0 18px ${A}88, 0 0 36px ${A}33;
+          animation: none;
+        }
+        .acu-hotspot.is-highlighted .acu-ring {
+          border-color: ${isDark ? 'rgba(94,234,212,0.5)' : `${A}55`};
         }
 
         /* ===== 라벨 — 글래스 필 ===== */
@@ -740,7 +797,17 @@ export function BodyMap3D({
               <button
                 className="mt-1 text-[9px] px-2 py-0.5 rounded"
                 style={{ backgroundColor: '#0D948822', color: '#0D9488', fontWeight: 600 }}
-                onClick={() => { navigator.clipboard.writeText(`position: '${log.position}', normal: '${log.normal}'`); }}
+                onClick={() => {
+                  const text = `position: '${log.position}', normal: '${log.normal}'`;
+                  const ta = document.createElement('textarea');
+                  ta.value = text;
+                  ta.style.position = 'fixed';
+                  ta.style.opacity = '0';
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(ta);
+                }}
               >
                 복사
               </button>

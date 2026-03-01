@@ -5,7 +5,7 @@ import { Toaster, toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import { Drawer } from 'vaul';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
-import { BodyMap3D } from './components/body-map-3d';
+import { BodyMap3D, type Gender } from './components/body-map-3d';
 
 // 햅틱 유틸
 const haptic = (ms = 12) => { try { navigator?.vibrate?.(ms); } catch {} };
@@ -732,144 +732,144 @@ function ResultDetail({
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col h-full"
     >
-      <div className="px-5 md:px-6 pt-4 md:pt-8 pb-3 md:pb-4 bg-white/80 dark:bg-[#2C2C2E]/80 backdrop-blur-xl sticky top-0 z-10 border-b border-gray-100/50 dark:border-gray-700/50">
+      {/* 헤더 */}
+      <div className="px-5 md:px-6 pt-4 md:pt-8 pb-3 md:pb-4 sticky top-0 z-10" style={{ backgroundColor: isDarkNow ? 'rgba(28,28,30,0.92)' : 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors mb-3 cursor-pointer text-[14px]"
+          className="flex items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors mb-2 cursor-pointer text-[13px]"
           style={{ fontWeight: 500 }}
         >
-          <ArrowLeft className="w-4 h-4" />
-          다른 증상 보기
+          <ArrowLeft className="w-3.5 h-3.5" />
+          목록으로
         </button>
-        <div className="flex items-center gap-1.5 text-[12px] text-gray-400 dark:text-gray-500 mb-2 flex-wrap" style={{ fontWeight: 500 }}>
-          <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-md">{partName}</span>
-          {partNote && <span className="text-[10px] text-gray-400 dark:text-gray-500">({partNote})</span>}
-          <ChevronRight className="w-3 h-3" />
-          <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-md">{symptom.title}</span>
+        <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 500 }}>
+          <span>{partName}</span>
+          {partNote && <span className="opacity-60">· {partNote}</span>}
+          <ChevronRight className="w-3 h-3 opacity-40" />
+          <span className="text-gray-600 dark:text-gray-300" style={{ fontWeight: 600 }}>{symptom.title}</span>
         </div>
-        <h2 className="text-[20px] md:text-[22px] text-gray-900 dark:text-gray-100 tracking-tight" style={{ fontWeight: 700 }}>
-          이 혈자리 눌러봐
-        </h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 md:space-y-4 bg-[#F9F9FB] dark:bg-[#1C1C1E]">
-        {/* 저장용 카드 영역 시작 */}
-        <div ref={cardRef} className="space-y-3 md:space-y-4">
-        {/* Point hero */}
-        <div className="bg-gradient-to-br from-teal-500 to-emerald-500 rounded-[20px] p-4 md:p-5 shadow-lg shadow-teal-500/15">
-          <div className="flex items-center gap-3 md:gap-4">
-            <div className="w-14 h-14 md:w-16 md:h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm flex-shrink-0">
-              <svg viewBox="0 0 48 48" width="36" height="36">
-                <circle cx="24" cy="24" r="8" fill="white" opacity="0.3">
-                  <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="24" cy="24" r="4" fill="white" opacity="0.85" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-teal-100 text-[11px] mb-0.5" style={{ fontWeight: 500 }}>여기를 눌러봐</p>
-              <h3 className="text-white text-[16px] md:text-[18px] tracking-tight !leading-snug" style={{ fontWeight: 800 }}>
+      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: isDarkNow ? '#1C1C1E' : '#F7F7F8' }}>
+        <div ref={cardRef}>
+
+        {/* ── 혈자리 이름 섹션 ── */}
+        <div className="px-5 md:px-6 pt-6 pb-5" style={{ backgroundColor: isDarkNow ? '#1C1C1E' : '#F7F7F8' }}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[11px] text-teal-600 dark:text-teal-400 mb-1.5 tracking-wide" style={{ fontWeight: 600 }}>ACUPOINT</p>
+              <h2 className="text-[26px] md:text-[30px] text-gray-900 dark:text-gray-50 tracking-tight mb-1" style={{ fontWeight: 800, lineHeight: 1.15 }}>
                 {point.name}
-              </h3>
+              </h2>
+              <p className="text-[13px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>
+                {symptom.title}
+              </p>
+            </div>
+            <div className="mt-2 mr-1 relative">
+              <span className="block w-3 h-3 rounded-full bg-teal-500" style={{ boxShadow: '0 0 12px rgba(13,148,136,0.4)' }} />
+              <span className="absolute inset-0 w-3 h-3 rounded-full bg-teal-500 animate-ping opacity-30" />
             </div>
           </div>
         </div>
 
-        {/* Location */}
-        <div className="bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-700/50 rounded-2xl p-4 shadow-sm dark:shadow-none">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <MapPin className="w-[18px] h-[18px] text-teal-600 dark:text-teal-400" />
-            </div>
-            <div>
-              <h4 className="text-[14px] text-gray-900 dark:text-gray-100 mb-1" style={{ fontWeight: 700 }}>위치</h4>
-              <p className="text-[13px] text-gray-500 dark:text-gray-400 !leading-[1.7]" style={{ fontWeight: 400 }}>{point.location}</p>
-            </div>
-          </div>
-        </div>
+        {/* ── 카드 영역 ── */}
+        <div className="px-4 md:px-6 space-y-2.5 pb-3">
 
-        {/* Method */}
-        <div className="bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-700/50 rounded-2xl p-4 shadow-sm dark:shadow-none">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Hand className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400" />
+          {/* 위치 */}
+          <div className="rounded-2xl p-4" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin className="w-4 h-4 text-teal-500" />
+              <span className="text-[12px] text-teal-600 dark:text-teal-400 tracking-wide" style={{ fontWeight: 700 }}>위치</span>
             </div>
-            <div>
-              <h4 className="text-[14px] text-gray-900 dark:text-gray-100 mb-1" style={{ fontWeight: 700 }}>지압 방법</h4>
-              <p className="text-[13px] text-gray-500 dark:text-gray-400 !leading-[1.7]" style={{ fontWeight: 400 }}>{point.method}</p>
+            <p className="text-[14px] text-gray-700 dark:text-gray-300 !leading-[1.8] pl-6" style={{ fontWeight: 400 }}>{point.location}</p>
+          </div>
+
+          {/* 지압 방법 */}
+          <div className="rounded-2xl p-4" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Hand className="w-4 h-4 text-teal-500" />
+              <span className="text-[12px] text-teal-600 dark:text-teal-400 tracking-wide" style={{ fontWeight: 700 }}>방법</span>
+            </div>
+            <p className="text-[14px] text-gray-700 dark:text-gray-300 !leading-[1.8] pl-6" style={{ fontWeight: 400 }}>{point.method}</p>
+          </div>
+
+          {/* 시간 / 횟수 */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-2xl p-3.5 flex items-center gap-3" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
+              <Clock className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+              <div>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-0.5" style={{ fontWeight: 600 }}>시간</p>
+                <p className="text-[13px] text-gray-800 dark:text-gray-200" style={{ fontWeight: 700 }}>{point.duration}</p>
+              </div>
+            </div>
+            <div className="rounded-2xl p-3.5 flex items-center gap-3" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
+              <RotateCcw className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+              <div>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-0.5" style={{ fontWeight: 600 }}>횟수</p>
+                <p className="text-[13px] text-gray-800 dark:text-gray-200" style={{ fontWeight: 700 }}>{point.repetitions}</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Duration + Repetitions */}
-        <div className="grid grid-cols-2 gap-2.5 md:gap-3">
-          <div className="bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-700/50 rounded-2xl p-3 md:p-3.5 shadow-sm dark:shadow-none">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Clock className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
-              <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 600 }}>시간</span>
+          {/* 기대 효과 — 아웃라인 칩 */}
+          <div className="rounded-2xl p-4" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-teal-500" />
+              <span className="text-[12px] text-teal-600 dark:text-teal-400 tracking-wide" style={{ fontWeight: 700 }}>기대 효과</span>
             </div>
-            <p className="text-[12px] md:text-[13px] text-gray-800 dark:text-gray-200" style={{ fontWeight: 600 }}>{point.duration}</p>
-          </div>
-          <div className="bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-700/50 rounded-2xl p-3 md:p-3.5 shadow-sm dark:shadow-none">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <RotateCcw className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
-              <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 600 }}>횟수</span>
+            <div className="flex flex-wrap gap-1.5">
+              {point.effects.map((e, i) => (
+                <span
+                  key={i}
+                  className="px-3 py-1.5 rounded-lg text-[12px]"
+                  style={{
+                    color: isDarkNow ? 'rgba(153,246,228,0.9)' : '#0F766E',
+                    backgroundColor: isDarkNow ? 'rgba(13,148,136,0.1)' : 'rgba(13,148,136,0.04)',
+                    border: `1px solid ${isDarkNow ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.12)'}`,
+                    fontWeight: 500,
+                  }}
+                >
+                  {e}
+                </span>
+              ))}
             </div>
-            <p className="text-[12px] md:text-[13px] text-gray-800 dark:text-gray-200" style={{ fontWeight: 600 }}>{point.repetitions}</p>
           </div>
-        </div>
 
-        {/* Effects */}
-        <div className="bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-gray-700/50 rounded-2xl p-4 shadow-sm dark:shadow-none">
-          <div className="flex items-center gap-2 mb-2.5">
-            <Sparkles className="w-[18px] h-[18px] text-teal-500 dark:text-teal-400" />
-            <h4 className="text-[14px] text-gray-900 dark:text-gray-100" style={{ fontWeight: 700 }}>기대 효과</h4>
+          {/* 주의사항 */}
+          <div className="rounded-2xl p-3.5 flex items-start gap-2.5" style={{ backgroundColor: isDarkNow ? 'rgba(245,158,11,0.05)' : 'rgba(245,158,11,0.03)', border: `1px solid ${isDarkNow ? 'rgba(245,158,11,0.1)' : 'rgba(245,158,11,0.08)'}` }}>
+            <Shield className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: isDarkNow ? 'rgba(252,211,77,0.6)' : 'rgba(180,83,9,0.5)' }} />
+            <p className="text-[12px] !leading-[1.7]" style={{ color: isDarkNow ? 'rgba(252,211,77,0.7)' : '#92400E', fontWeight: 400 }}>
+              임산부·심혈관 질환·피부 상처가 있다면 지압은 건너뛰세요.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {point.effects.map((e, i) => (
-              <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-lg text-[12px]" style={{ fontWeight: 500 }}>
-                <span className="w-1 h-1 bg-teal-400 rounded-full" />
-                {e}
-              </span>
-            ))}
+
+          {/* 워터마크 */}
+          <div className="flex items-center justify-center gap-2 pt-2 pb-1 opacity-40">
+            <img src="/99.png" alt="로고" className="w-4 h-4 rounded object-contain" />
+            <span className="text-[10px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 500 }}>
+              내 몸이 보내는 신호, 혈자리로 풀어봐
+            </span>
           </div>
-        </div>
 
-        {/* Warning */}
-        <div className="bg-amber-50/60 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-2xl p-3.5">
-          <p className="text-amber-800 dark:text-amber-300 text-[12px] !leading-[1.7]" style={{ fontWeight: 500 }}>
-            임산부이거나, 심혈관 질환이 있거나, 피부에 상처가 있다면 지압은 건너뛰세요.
-          </p>
-        </div>
-
-        {/* 브랜딩 워터마크 (이미지 저장 시 포함됨) */}
-        <div className="flex items-center justify-center gap-2 pt-3 pb-1 opacity-60">
-          <img src="/99.png" alt="로고" className="w-5 h-5 rounded object-contain" />
-          <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 600 }}>
-            내 몸이 보내는 신호, 혈자리로 풀어봐
-          </span>
         </div>
         </div>{/* cardRef 끝 */}
 
-        {/* Buttons */}
-        <div className="space-y-2.5 pb-4">
-          {/* 이미지로 저장 */}
+        {/* ── 하단 버튼 ── */}
+        <div className="px-4 md:px-6 pt-2 pb-6 space-y-2" style={{ backgroundColor: isDarkNow ? '#1C1C1E' : '#F7F7F8' }}>
           <button
             onClick={handleSaveImage}
             disabled={saving}
-            className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-500 text-white rounded-xl text-[14px] shadow-md shadow-violet-500/15 cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{ fontWeight: 700 }}
+            className="w-full py-3.5 rounded-[14px] text-[14px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ fontWeight: 700, backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', color: isDarkNow ? '#E5E5EA' : '#1C1C1E', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}
           >
-            <Download className="w-4 h-4" />
-            {saving ? '저장 중...' : '이미지로 저장하기'}
+            <Download className="w-4 h-4 opacity-50" />
+            {saving ? '저장 중...' : '이미지로 저장'}
           </button>
           <button
             onClick={() => { haptic(); onDisclaimer(); }}
-            className="w-full py-3.5 bg-gradient-to-r from-teal-600 to-emerald-500 text-white rounded-xl text-[15px] shadow-md shadow-teal-500/15 cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-teal-600 text-white rounded-[14px] text-[14px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
             style={{ fontWeight: 700 }}
           >
-            <Shield className="w-4 h-4" />
             더 정확하게 알고 싶다면
           </button>
           <button
@@ -882,11 +882,11 @@ function ResultDetail({
                 toast.success('복사 완료! 붙여넣기 해봐요.');
               }
             }}
-            className="w-full py-3 bg-white dark:bg-[#3A3A3C] border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-[14px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-            style={{ fontWeight: 600 }}
+            className="w-full py-3 text-gray-400 dark:text-gray-500 text-[13px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 hover:text-gray-600 dark:hover:text-gray-300"
+            style={{ fontWeight: 500 }}
           >
-            <Share2 className="w-4 h-4" />
-            친구한테 공유하기
+            <Share2 className="w-3.5 h-3.5" />
+            공유하기
           </button>
         </div>
       </div>
@@ -1068,6 +1068,7 @@ function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestar
 interface PanelContentProps {
   activeResult: { partId: string; symptom: SymptomData } | null;
   selectedPartId: string | null;
+  selectedCategoryId: string | null;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   searchResults: { partId: string; partName: string; title: string; point: string }[];
@@ -1075,6 +1076,7 @@ interface PanelContentProps {
   setSelectedPartId: (id: string | null) => void;
   handleSymptomClick: (partId: string, symptom: SymptomData) => void;
   handleShortcutClick: (s: SituationShortcut) => void;
+  handlePartFromCategory: (partId: string) => void;
   setActiveResult: (r: { partId: string; symptom: SymptomData } | null) => void;
   setShowDisclaimer: () => void;
   currentFlowStep: number;
@@ -1083,9 +1085,9 @@ interface PanelContentProps {
 }
 
 function PanelContent({
-  activeResult, selectedPartId, searchQuery, setSearchQuery, searchResults,
+  activeResult, selectedPartId, selectedCategoryId, searchQuery, setSearchQuery, searchResults,
   setHoveredPartId, setSelectedPartId,
-  handleSymptomClick, handleShortcutClick, setActiveResult, setShowDisclaimer,
+  handleSymptomClick, handleShortcutClick, handlePartFromCategory, setActiveResult, setShowDisclaimer,
   currentFlowStep, isDark, isMobile,
 }: PanelContentProps) {
   return (
@@ -1157,27 +1159,28 @@ function PanelContent({
                     <p className="text-[13px] mt-1.5 text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>다른 키워드로 검색해봐요.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2.5" role="list">
+                  <div className="space-y-2" role="list">
                     {searchResults.map((res, idx) => (
                       <button
                         key={`${res.partId}-${idx}`}
                         onClick={() => { setSearchQuery(''); setSelectedPartId(res.partId); handleSymptomClick(res.partId, { title: res.title, point: res.point }); }}
                         onMouseEnter={() => setHoveredPartId(res.partId)}
                         onMouseLeave={() => setHoveredPartId(null)}
-                        className="w-full text-left bg-white dark:bg-[#2C2C2E] shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-gray-700/50 p-4 rounded-[18px] transition-all duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] active:scale-[0.98] group cursor-pointer"
+                        className="w-full text-left bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-4 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 hover:shadow-[0_8px_30px_rgba(13,148,136,0.08)] active:scale-[0.98] group cursor-pointer relative overflow-hidden"
                         role="listitem"
                         aria-label={`${res.title} - ${res.point}`}
                       >
-                        <div className="flex items-center justify-between w-full mb-1.5">
-                          <span className="text-[15px] md:text-[16px] text-gray-800 dark:text-gray-200" style={{ fontWeight: 600 }}>{res.title}</span>
-                          <div className="w-6 h-6 rounded-full bg-gray-50 dark:bg-gray-700 flex items-center justify-center group-hover:bg-teal-600 transition-colors">
-                            <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-500 group-hover:text-white" strokeWidth={3} />
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[14px] md:text-[15px] text-gray-800 dark:text-gray-200 block mb-1.5" style={{ fontWeight: 600 }}>{res.title}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[11px] rounded-md" style={{ fontWeight: 600 }}>{res.partName}</span>
+                              <span className="w-1 h-1 rounded-full bg-teal-400" />
+                              <span className="text-[12px] text-teal-600 dark:text-teal-400" style={{ fontWeight: 600 }}>{res.point}</span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[11px] rounded-md" style={{ fontWeight: 600 }}>{res.partName}</span>
-                          <span className="px-2 py-0.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-[11px] rounded-md" style={{ fontWeight: 600 }}>추천</span>
-                          <span className="text-[13px] text-teal-600 dark:text-teal-400" style={{ fontWeight: 700 }}>{res.point}</span>
+                          <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" strokeWidth={2.5} />
                         </div>
                       </button>
                     ))}
@@ -1197,39 +1200,92 @@ function PanelContent({
                     </span>
                   )}
                 </div>
-                <div className="space-y-2.5" role="list" aria-label={`${SUB_PARTS[selectedPartId].name} 증상 목록`}>
+                <div className="space-y-2" role="list" aria-label={`${SUB_PARTS[selectedPartId].name} 증상 목록`}>
                   {SUB_PARTS[selectedPartId].symptoms.map((symptom, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSymptomClick(selectedPartId, symptom)}
-                      className="w-full text-left bg-white dark:bg-[#2C2C2E] shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-gray-700/50 p-4 rounded-[18px] transition-all duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] active:scale-[0.98] group cursor-pointer"
+                      className="w-full text-left bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-4 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 hover:shadow-[0_8px_30px_rgba(13,148,136,0.08)] active:scale-[0.98] group cursor-pointer relative overflow-hidden"
                       role="listitem"
                       aria-label={`${symptom.title} - ${symptom.point}`}
                     >
-                      <div className="flex items-center justify-between w-full mb-1.5">
-                        <span className="text-[15px] md:text-[16px] text-gray-800 dark:text-gray-200" style={{ fontWeight: 600 }}>{symptom.title}</span>
-                        <div className="w-6 h-6 rounded-full bg-gray-50 dark:bg-gray-700 flex items-center justify-center group-hover:bg-teal-600 transition-colors">
-                          <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-500 group-hover:text-white" strokeWidth={3} />
+                      {/* 호버 시 왼쪽 인디케이터 */}
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="flex items-center gap-3">
+                        {/* 넘버링 */}
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: 'rgba(13,148,136,0.06)', color: '#0D9488', fontWeight: 700 }}>
+                          {idx + 1}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-[11px] rounded-md" style={{ fontWeight: 600 }}>추천 혈자리</span>
-                        <span className="text-[13px] text-teal-600 dark:text-teal-400" style={{ fontWeight: 700 }}>{symptom.point}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[14px] md:text-[15px] text-gray-800 dark:text-gray-200 block mb-1" style={{ fontWeight: 600 }}>{symptom.title}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1 h-1 rounded-full bg-teal-400" />
+                            <span className="text-[12px] text-teal-600 dark:text-teal-400" style={{ fontWeight: 600 }}>{symptom.point}</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" strokeWidth={2.5} />
                       </div>
                     </button>
                   ))}
                 </div>
               </motion.div>
             ) : (
-              /* ── 빈 상태 + 상황별 바로가기 ── */
+              /* ── 빈 상태 + 카테고리 세부 + 상황별 바로가기 ── */
               <div className="flex flex-col h-full">
-                <div className="flex flex-col items-center text-center mb-6 pt-4 md:pt-8">
-                  <ClipboardList className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2.5" strokeWidth={1.5} />
-                  <p className="text-gray-500 dark:text-gray-400 text-[16px]" style={{ fontWeight: 600 }}>오늘 어디가 불편해?</p>
-                  <p className="text-[13px] mt-1 text-gray-400 dark:text-gray-500 text-center max-w-[240px] !leading-relaxed" style={{ fontWeight: 400 }}>
-                    3D 바디맵에서 아픈 곳을 눌러보거나,<br />아래 상황에서 골라봐.
-                  </p>
-                </div>
+                {selectedCategoryId ? (
+                  /* ── 카테고리 선택됨 → 세부 부위 목록 ── */
+                  <div className="mb-4">
+                    {(() => {
+                      const cat = CATEGORIES.find(c => c.id === selectedCategoryId);
+                      if (!cat) return null;
+                      return (
+                        <>
+                          <div className="flex items-center gap-2.5 mb-3 ml-1">
+                            <div className="w-1.5 h-5 rounded-full" style={{ backgroundColor: '#0D9488' }} />
+                            <h3 className="text-[14px] text-gray-900 dark:text-gray-100" style={{ fontWeight: 600 }}>{cat.name}</h3>
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>{cat.partIds.length}개 부위</span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {cat.partIds.map(pid => {
+                              const part = SUB_PARTS[pid];
+                              if (!part) return null;
+                              return (
+                                <button
+                                  key={pid}
+                                  onClick={() => handlePartFromCategory(pid)}
+                                  onMouseEnter={() => setHoveredPartId(pid)}
+                                  onMouseLeave={() => setHoveredPartId(null)}
+                                  className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 active:scale-[0.98] cursor-pointer group"
+                                  style={{
+                                    backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+                                    border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}`,
+                                  }}
+                                >
+                                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform" style={{ backgroundColor: isDark ? 'rgba(13,148,136,0.12)' : 'rgba(13,148,136,0.06)' }}>
+                                    <MapPin className="w-4 h-4 text-teal-500" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[14px] text-gray-800 dark:text-gray-200 block" style={{ fontWeight: 600 }}>{part.name}</span>
+                                    <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>{part.symptoms.length}개 증상</span>
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center mb-6 pt-4 md:pt-8">
+                    <ClipboardList className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2.5" strokeWidth={1.5} />
+                    <p className="text-gray-500 dark:text-gray-400 text-[16px]" style={{ fontWeight: 600 }}>오늘 어디가 불편해?</p>
+                    <p className="text-[13px] mt-1 text-gray-400 dark:text-gray-500 text-center max-w-[240px] !leading-relaxed" style={{ fontWeight: 400 }}>
+                      3D 바디맵에서 아픈 곳을 눌러보거나,<br />아래 상황에서 골라봐.
+                    </p>
+                  </div>
+                )}
 
                 {/* 상황별 바로가기 */}
                 <nav aria-label="상황별 바로가기">
@@ -1244,12 +1300,16 @@ function PanelContent({
                       <button
                         key={s.title}
                         onClick={() => handleShortcutClick(s)}
-                        className="flex flex-col items-start bg-white dark:bg-[#2C2C2E] shadow-[0_2px_12px_rgba(0,0,0,0.04)] dark:shadow-none dark:border dark:border-gray-700/50 p-3.5 rounded-[16px] transition-all duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] active:scale-[0.97] cursor-pointer text-left"
+                        className="flex flex-col items-start bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-3.5 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 hover:shadow-[0_8px_30px_rgba(13,148,136,0.06)] active:scale-[0.97] cursor-pointer text-left group relative overflow-hidden"
                         aria-label={`${s.title}: ${s.desc}`}
                       >
-                        <span className="text-[20px] mb-1.5" aria-hidden="true">{s.icon}</span>
-                        <span className="text-[13px] text-gray-800 dark:text-gray-200 !leading-snug" style={{ fontWeight: 600 }}>{s.title}</span>
-                        <span className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5" style={{ fontWeight: 400 }}>{s.desc}</span>
+                        {/* 호버 시 배경 글로우 */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/0 to-emerald-50/0 group-hover:from-teal-50/50 group-hover:to-emerald-50/30 dark:group-hover:from-teal-900/10 dark:group-hover:to-emerald-900/5 transition-all duration-300" />
+                        <div className="relative">
+                          <span className="text-[20px] mb-1.5 block group-hover:scale-110 transition-transform duration-300 origin-left" aria-hidden="true">{s.icon}</span>
+                          <span className="text-[13px] text-gray-800 dark:text-gray-200 !leading-snug block" style={{ fontWeight: 600 }}>{s.title}</span>
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 block" style={{ fontWeight: 400 }}>{s.desc}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -1268,12 +1328,46 @@ function PanelContent({
 // 메인 App
 // ============================================================
 
+// ── 카테고리 2단 구조 ──
+interface CategoryItem {
+  id: string;
+  name: string;
+  gender: 'common' | 'male' | 'female';
+  partIds: string[];
+  cameraOrbit: string;
+  cameraTarget: string;
+}
+
+const CATEGORIES: CategoryItem[] = [
+  { id: 'cat_head',    name: '머리·얼굴', gender: 'common', partIds: ['head_main', 'eyes', 'ear', 'face'],
+    cameraOrbit: '0deg 60deg 2.0m', cameraTarget: '0 1.3 0.05' },
+  { id: 'cat_neck',    name: '목·어깨',   gender: 'common', partIds: ['neck', 'shoulder'],
+    cameraOrbit: '-10deg 72deg 2.2m', cameraTarget: '0 0.95 0.03' },
+  { id: 'cat_chest',   name: '가슴·등',   gender: 'common', partIds: ['chest_main', 'back_upper'],
+    cameraOrbit: '0deg 78deg 2.0m', cameraTarget: '0 0.7 0.05' },
+  { id: 'cat_abdomen', name: '복부',      gender: 'common', partIds: ['abdomen_main', 'pelvis'],
+    cameraOrbit: '0deg 86deg 2.0m', cameraTarget: '0 0.33 0.1' },
+  { id: 'cat_back',    name: '허리',      gender: 'common', partIds: ['back_lower'],
+    cameraOrbit: '180deg 85deg 2.0m', cameraTarget: '0 0.36 -0.05' },
+  { id: 'cat_arms',    name: '팔·손',     gender: 'common', partIds: ['arm_upper', 'arm_lower', 'hand'],
+    cameraOrbit: '-35deg 80deg 2.5m', cameraTarget: '-0.5 0.45 0.05' },
+  { id: 'cat_legs',    name: '다리·발',   gender: 'common', partIds: ['leg_upper', 'knee', 'leg_lower', 'foot'],
+    cameraOrbit: '-5deg 95deg 3.0m', cameraTarget: '0 -0.6 0.03' },
+  { id: 'cat_female',  name: '여성건강',  gender: 'female', partIds: ['pelvis', 'back_lower'],
+    cameraOrbit: '0deg 88deg 2.0m', cameraTarget: '0 0.28 0.08' },
+];
+
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [gender, setGender] = useState<Gender>('male');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [highlightedPartIds, setHighlightedPartIds] = useState<string[]>([]);
+  const [focusCameraOrbit, setFocusCameraOrbit] = useState<string | null>(null);
+  const [focusCameraTarget, setFocusCameraTarget] = useState<string | null>(null);
 
   // 다크모드 시스템 감지
   useEffect(() => {
@@ -1356,11 +1450,62 @@ export default function App() {
           ? 2
           : 1;
 
+  // ── 성별 전환 ──
+  const handleGenderToggle = (g: Gender) => {
+    haptic(10);
+    setGender(g);
+    setSelectedPartId(null);
+    setActiveResult(null);
+    setSelectedCategoryId(null);
+    setHighlightedPartIds([]);
+    setFocusCameraOrbit(null);
+    setFocusCameraTarget(null);
+    setMobilePanel(false);
+  };
+
+  // ── 카테고리 클릭 ──
+  const handleCategoryClick = (cat: CategoryItem) => {
+    haptic(10);
+    if (selectedCategoryId === cat.id) {
+      // 토글 해제
+      setSelectedCategoryId(null);
+      setHighlightedPartIds([]);
+      setFocusCameraOrbit(null);
+      setFocusCameraTarget(null);
+    } else {
+      setSelectedCategoryId(cat.id);
+      setHighlightedPartIds(cat.partIds);
+      setFocusCameraOrbit(cat.cameraOrbit);
+      setFocusCameraTarget(cat.cameraTarget);
+    }
+    setSelectedPartId(null);
+    setActiveResult(null);
+  };
+
+  // 현재 성별에 맞는 카테고리만 필터
+  const visibleCategories = CATEGORIES.filter(
+    c => c.gender === 'common' || c.gender === gender
+  );
+
+  // ── 카테고리에서 부위 클릭 ──
+  const handlePartFromCategory = (partId: string) => {
+    haptic(10);
+    if (SUB_PARTS[partId]) {
+      setSelectedPartId(partId);
+      setActiveResult(null);
+      setMobilePanel(true);
+    }
+  };
+
   const handlePartClick = (id: string) => {
     haptic(10);
     if (SUB_PARTS[id]) {
       setSelectedPartId(id);
       setActiveResult(null);
+      setSelectedCategoryId(null);
+      setHighlightedPartIds([]);
+      setFocusCameraOrbit(null);
+      setFocusCameraTarget(null);
       setMobilePanel(true);
     }
   };
@@ -1389,6 +1534,8 @@ export default function App() {
     setSearchQuery('');
     setActiveResult(null);
     setMobilePanel(false);
+    setSelectedCategoryId(null);
+    setHighlightedPartIds([]);
   };
 
   // 검색 (useMemo로 최적화)
@@ -1432,6 +1579,7 @@ export default function App() {
           <PanelContent
             activeResult={activeResult}
             selectedPartId={selectedPartId}
+            selectedCategoryId={selectedCategoryId}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             searchResults={searchResults}
@@ -1439,6 +1587,7 @@ export default function App() {
             setSelectedPartId={setSelectedPartId}
             handleSymptomClick={handleSymptomClick}
             handleShortcutClick={handleShortcutClick}
+            handlePartFromCategory={handlePartFromCategory}
             setActiveResult={setActiveResult}
             setShowDisclaimer={() => setShowDisclaimer(true)}
             currentFlowStep={currentFlowStep}
@@ -1471,6 +1620,7 @@ export default function App() {
                 <PanelContent
                   activeResult={activeResult}
                   selectedPartId={selectedPartId}
+                  selectedCategoryId={selectedCategoryId}
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
                   searchResults={searchResults}
@@ -1478,6 +1628,7 @@ export default function App() {
                   setSelectedPartId={setSelectedPartId}
                   handleSymptomClick={handleSymptomClick}
                   handleShortcutClick={handleShortcutClick}
+                  handlePartFromCategory={handlePartFromCategory}
                   setActiveResult={setActiveResult}
                   setShowDisclaimer={() => setShowDisclaimer(true)}
                   currentFlowStep={currentFlowStep}
@@ -1524,13 +1675,93 @@ export default function App() {
                 <button onClick={() => setSearchQuery('')} className="w-5 h-5 flex items-center justify-center bg-gray-300 dark:bg-gray-600 rounded-full text-white text-xs cursor-pointer" style={{ fontWeight: 700 }} aria-label="검색어 지우기">×</button>
               )}
             </div>
+            {/* 모바일 카테고리 칩 */}
+            <div className="flex gap-2 mt-2.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+              {visibleCategories.map(cat => {
+                const isActive = selectedCategoryId === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategoryClick(cat)}
+                    className="relative px-4 py-[7px] rounded-full text-[13px] cursor-pointer transition-all duration-300 active:scale-[0.96] whitespace-nowrap flex-shrink-0"
+                    style={{
+                      fontWeight: isActive ? 600 : 400,
+                      backgroundColor: isActive
+                        ? '#0D9488'
+                        : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'),
+                      color: isActive
+                        ? '#FFFFFF'
+                        : (isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)'),
+                      letterSpacing: '0.01em',
+                    }}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── 성별 토글 ── */}
+          <div className="absolute z-20 left-1/2 -translate-x-1/2 md:left-4 md:translate-x-0 md:top-4 md:bottom-auto" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 60px)' }}>
+            <div className="flex rounded-full p-0.5 backdrop-blur-xl" style={{ backgroundColor: isDark ? 'rgba(44,44,46,0.85)' : 'rgba(255,255,255,0.88)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+              {(['male', 'female'] as Gender[]).map(g => (
+                <button
+                  key={g}
+                  onClick={() => handleGenderToggle(g)}
+                  className="relative px-5 py-2 rounded-full text-[13px] cursor-pointer transition-all duration-300"
+                  style={{
+                    fontWeight: gender === g ? 700 : 500,
+                    color: gender === g ? (isDark ? '#FFFFFF' : '#FFFFFF') : (isDark ? '#A1A1AA' : '#6B7280'),
+                    backgroundColor: gender === g ? '#0D9488' : 'transparent',
+                  }}
+                >
+                  {g === 'male' ? '남성' : '여성'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── 카테고리 칩 (데스크탑: 좌하단) ── */}
+          <div className="absolute z-20 hidden md:block left-4 bottom-4">
+            <div className="flex flex-wrap gap-2 max-w-[340px]">
+              {visibleCategories.map(cat => {
+                const isActive = selectedCategoryId === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategoryClick(cat)}
+                    className="relative px-4 py-2 rounded-full text-[13px] cursor-pointer transition-all duration-300 active:scale-[0.96] backdrop-blur-xl"
+                    style={{
+                      fontWeight: isActive ? 600 : 400,
+                      backgroundColor: isActive
+                        ? '#0D9488'
+                        : (isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.75)'),
+                      color: isActive
+                        ? '#FFFFFF'
+                        : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'),
+                      boxShadow: isActive
+                        ? '0 4px 16px rgba(13,148,136,0.3)'
+                        : '0 1px 4px rgba(0,0,0,0.04)',
+                      letterSpacing: '0.01em',
+                    }}
+                  >
+                    {cat.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* ── 3D 바디맵 ── */}
           <BodyMap3D
             isDark={isDark}
+            gender={gender}
             hoveredPartId={hoveredPartId}
             selectedPartId={selectedPartId}
+            highlightedPartIds={highlightedPartIds}
+            focusCameraOrbit={focusCameraOrbit}
+            focusCameraTarget={focusCameraTarget}
             onHover={setHoveredPartId}
             onClick={handlePartClick}
           />

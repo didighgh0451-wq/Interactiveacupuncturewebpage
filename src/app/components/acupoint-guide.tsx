@@ -1,12 +1,12 @@
 // 혈자리 위치 시각 가이드 다이어그램
-// 각 혈자리에 맞는 SVG 일러스트를 렌더링합니다.
+// 각 혈자리에 맞는 피그마 에셋 Frame 컴포넌트를 렌더링합니다.
 
-import baekhoeImg from "figma:asset/53caf3969bd178da155e6e60fcd56d3f70207c3f.png";
-import pungjiImg from "figma:asset/9cb054bf18dd95b518cfb1eb4d7095c6aacec4df.png";
-import cheonchuImg from "figma:asset/9b63330afc669919a429d005330748fa9d6728a6.png";
-import imunImg from "figma:asset/d684a2c73d70e1183b7fae25e7f6a94388a11020.png";
-import sabaekImg from "figma:asset/64e643918948b08319d82a7c62253bf37bacd99b.png";
-import aepungImg from "figma:asset/02c3896894b3f4036ae6b5d52f7811bf461985ed.png";
+import BaekhoeFrame from '../../imports/Frame4';
+import PungjiFrame from '../../imports/Frame5';
+import CheonchuFrame from '../../imports/Frame6';
+import ImunFrame from '../../imports/Frame7';
+import SabaekFrame from '../../imports/Frame9';
+import AepungFrame from '../../imports/Frame11';
 
 interface AcupointGuideProps {
   pointName: string;
@@ -20,239 +20,158 @@ export function AcupointGuide({ pointName, accentColor, isDark }: AcupointGuideP
   return guide(accentColor, isDark);
 }
 
+// 피그마 에셋 Frame 래퍼 – 1024×1024 원본을 260px 컨테이너에 맞춤
+function FrameCard({
+  FrameComponent,
+  alt,
+  label,
+  accent,
+  isDark,
+  flipX = false,
+}: {
+  FrameComponent: React.ComponentType;
+  alt: string;
+  label: string;
+  accent: string;
+  isDark: boolean;
+  flipX?: boolean;
+}) {
+  return (
+    <div className="mt-3 flex flex-col items-center">
+      <div
+        className="relative w-full max-w-[260px] rounded-xl overflow-hidden"
+        style={{
+          border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+          backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF',
+        }}
+      >
+        {/* 1024→260 스케일 래퍼 */}
+        <div
+          className="w-[260px] h-[260px] overflow-hidden"
+          style={{ transform: flipX ? 'scaleX(-1)' : undefined }}
+        >
+          <div
+            className="w-[1024px] h-[1024px] origin-top-left"
+            style={{ transform: 'scale(0.254)' }}
+          >
+            <FrameComponent />
+          </div>
+        </div>
+
+        {/* 하단 라벨 오버레이 */}
+        <div
+          className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
+          style={{
+            background: isDark
+              ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
+              : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
+          }}
+        >
+          <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
+            {label}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 가이드가 있는 혈자리 목록 (다른 혈자리도 추가 가능)
 const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> = {
 
   // ──── 백회혈: 정수리 꼭대기 ────
-  '백회혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={baekhoeImg}
-            alt="백회혈 위치 - 정수리 꼭대기"
-            className="w-full h-auto object-contain"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          {/* 하단 라벨 오버레이 */}
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              양쪽 귀 연결선과 코→뒤통수 선이 만나는 점
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  '백회혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={BaekhoeFrame}
+      alt="백회혈 위치 - 정수리 꼭대기"
+      label="양쪽 귀 연결선과 코→뒤통수 선이 만나는 점"
+      accent={accent}
+      isDark={isDark}
+    />
+  ),
 
   // ──── 풍지혈: 뒷목 양쪽 오목한 곳 ────
-  '풍지혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={pungjiImg}
-            alt="풍지혈 위치 - 뒷목 양쪽 오목한 곳"
-            className="w-full h-auto object-contain"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              뒷머리뼈 아래 양쪽 움푹 들어간 곳
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  '풍지혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={PungjiFrame}
+      alt="풍지혈 위치 - 뒷목 양쪽 오목한 곳"
+      label="뒷머리뼈 아래 양쪽 움푹 들어간 곳"
+      accent={accent}
+      isDark={isDark}
+    />
+  ),
 
   // ──── 천추혈: 배꼽 양옆 4cm ────
-  '천추혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={cheonchuImg}
-            alt="천추혈 위치"
-            className="w-full h-auto object-contain"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              배꼽 양옆 손가락 두 마디(약 4cm) 지점
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  '천추혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={CheonchuFrame}
+      alt="천추혈 위치"
+      label="배꼽 양옆 손가락 두 마디(약 4cm) 지점"
+      accent={accent}
+      isDark={isDark}
+    />
+  ),
 
   // ──── 이문혈: 귀 앞쪽 오목한 곳 ────
-  '이문혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={imunImg}
-            alt="이문혈 위치 - 귀 앞쪽 오목한 곳"
-            className="w-full h-auto object-contain"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              귀 앞쪽 이주(귀구슬) 위 오목한 곳
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  '이문혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={ImunFrame}
+      alt="이문혈 위치 - 귀 앞쪽 오목한 곳"
+      label="귀 앞쪽 이주(귀구슬) 위 오목한 곳"
+      accent={accent}
+      isDark={isDark}
+    />
+  ),
 
   // ──── 청궁혈: 귀 앞쪽 오목한 곳 ────
-  '청궁혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={imunImg}
-            alt="청궁혈 위치 - 귀 앞쪽 오목한 곳"
-            className="w-full h-auto object-contain"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              귀 앞쪽 이주(귀구슬) 앞 오목한 곳
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  '청궁혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={ImunFrame}
+      alt="청궁혈 위치 - 귀 앞쪽 오목한 곳"
+      label="귀 앞쪽 이주(귀구슬) 앞 오목한 곳"
+      accent={accent}
+      isDark={isDark}
+    />
+  ),
 
   // ──── 사백혈: 눈 아래 오목한 곳 ────
-  '사백혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={sabaekImg}
-            alt="사백혈 위치 - 눈 아래 오목한 곳"
-            className="w-full h-auto object-contain"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              눈동자 바로 아래 약 1cm 움푹 들어간 곳
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  '사백혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={SabaekFrame}
+      alt="사백혈 위치 - 눈 아래 오목한 곳"
+      label="눈동자 바로 아래 약 1cm 움푹 들어간 곳"
+      accent={accent}
+      isDark={isDark}
+    />
+  ),
 
-  // ──── 애풍혈: 귓불 뒤쪽 오목한 곳 ────
-  '예풍혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={aepungImg}
-            alt="예풍혈 위치 - 귓불 뒤쪽 오목한 곳"
-            className="w-full h-auto object-contain"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              귓불 뒤쪽 뼈와 턱 사이 움푹 들어간 곳
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  // ──── 예풍혈: 귓불 뒤쪽 오목한 곳 ────
+  '예풍혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={AepungFrame}
+      alt="예풍혈 위치 - 귓불 뒤쪽 오목한 곳"
+      label="귓불 뒤쪽 뼈와 턱 사이 움푹 들어간 곳"
+      accent={accent}
+      isDark={isDark}
+    />
+  ),
 
-  // ──── 협거혈: 귓불 아래 턱 관절 부위 ────
-  '협거혈': (accent, isDark) => {
-    return (
-      <div className="mt-3 flex flex-col items-center">
-        <div className="relative w-full max-w-[260px] rounded-xl overflow-hidden" style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}>
-          <img
-            src={aepungImg}
-            alt="협거혈 위치 - 광대뼈 아래 움푹 들어간 곳"
-            className="w-full h-auto object-contain -scale-x-100"
-            style={{ backgroundColor: isDark ? '#2A2A2C' : '#FFFFFF' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 px-3 py-2 text-center"
-            style={{
-              background: isDark
-                ? 'linear-gradient(to top, rgba(28,28,30,0.95), rgba(28,28,30,0.6), transparent)'
-                : 'linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.6), transparent)',
-            }}
-          >
-            <span className="text-[11px]" style={{ color: accent, fontWeight: 600 }}>
-              광대뼈 아래 모서리에서 움푹 들어간 곳
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  },
+  // ──── 협거혈: 광대뼈 아래 ────
+  '협거혈': (accent, isDark) => (
+    <FrameCard
+      FrameComponent={AepungFrame}
+      alt="협거혈 위치 - 광대뼈 아래 움푹 들어간 곳"
+      label="광대뼈 아래 모서리에서 움푹 들어간 곳"
+      accent={accent}
+      isDark={isDark}
+      flipX
+    />
+  ),
 
   // ──── 합곡혈: 엄지·검지 사이 ────
   '합곡혈': (accent, isDark) => {
     const skinBg = isDark ? '#3A3028' : '#FDECD0';
     const skinBorder = isDark ? '#5A4A3A' : '#E8D0A8';
-    const textColor = isDark ? '#D1D5DB' : '#4B5563';
     const subText = isDark ? '#9CA3AF' : '#6B7280';
 
     return (
@@ -306,10 +225,8 @@ const GUIDES: Record<string, (accent: string, isDark: boolean) => JSX.Element> =
 
           {/* 거리 표시선 (세로) */}
           <line x1="125" y1="55" x2="125" y2="110" stroke={lineDash} strokeWidth="1" strokeDasharray="3 2" />
-          {/* 거리 양끝 작은 가로선 */}
           <line x1="122" y1="55" x2="128" y2="55" stroke={lineDash} strokeWidth="1" />
           <line x1="122" y1="110" x2="128" y2="110" stroke={lineDash} strokeWidth="1" />
-          {/* 거리 텍스트 */}
           <text x="140" y="86" textAnchor="start" fill={subText} fontSize="9" fontFamily="'Noto Sans KR', sans-serif">약 6cm</text>
 
           {/* 관원혈 포인트 */}

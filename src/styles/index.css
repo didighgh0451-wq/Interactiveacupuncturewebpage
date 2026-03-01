@@ -10,3 +10,22 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* 마스코트 프레임 반응형 스케일 */
+.mascot-wrap {
+  width: 224px;
+  height: 288px;
+  overflow: hidden;
+}
+.mascot-scale {
+  transform: scale(0.5628);
+}
+@media (min-width: 768px) {
+  .mascot-wrap {
+    width: 288px;
+    height: 370px;
+  }
+  .mascot-scale {
+    transform: scale(0.7236);
+  }
+}

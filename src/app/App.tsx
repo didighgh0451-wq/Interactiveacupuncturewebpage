@@ -1,14 +1,25 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, ChevronRight, ClipboardList, MapPin, Hand, Clock, RotateCcw, Sparkles, Shield, Share2, ArrowLeft, X, Zap, MousePointerClick, Move3D, ListChecks, Download, MessageCircle, Calendar, ChevronDown } from 'lucide-react';
+import { Search, ChevronRight, ChevronLeft, ClipboardList, MapPin, Hand, Clock, RotateCcw, Sparkles, Shield, Share2, ArrowLeft, X, Zap, MousePointerClick, Move3D, ListChecks, Download, MessageCircle, Calendar, ChevronDown } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import { Drawer } from 'vaul';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { BodyMap3D, type Gender } from './components/body-map-3d';
+import { AcupointGuide, hasGuide } from './components/acupoint-guide';
+import mascotImg from "figma:asset/2b8c18b050b40cab271d9b7df7ecfc454bc11032.png";
+import clinicLogo from "figma:asset/5dfb652518773eb5df52c829cc7a916e05104066.png";
 
 // 햅틱 유틸
 const haptic = (ms = 12) => { try { navigator?.vibrate?.(ms); } catch {} };
+
+// 성별별 액센트 컬러
+const ACCENT_COLORS = {
+  male: { primary: '#0D9488', glow: 'rgba(13,148,136,0.4)', shadow: 'rgba(13,148,136,0.3)', bg: 'rgba(13,148,136,0.06)', bgDark: 'rgba(13,148,136,0.1)', border: 'rgba(13,148,136,0.12)', borderDark: 'rgba(13,148,136,0.2)', textLight: '#0F766E', textLightDark: 'rgba(153,246,228,0.9)' },
+  female: { primary: '#E11D48', glow: 'rgba(225,29,72,0.4)', shadow: 'rgba(225,29,72,0.3)', bg: 'rgba(225,29,72,0.06)', bgDark: 'rgba(225,29,72,0.1)', border: 'rgba(225,29,72,0.12)', borderDark: 'rgba(225,29,72,0.2)', textLight: '#BE123C', textLightDark: 'rgba(253,164,175,0.9)' },
+} as const;
+const getAccent = (g: Gender) => ACCENT_COLORS[g];
 
 // ============================================================
 // 데이터 정의
@@ -17,6 +28,7 @@ const haptic = (ms = 12) => { try { navigator?.vibrate?.(ms); } catch {} };
 interface SymptomData {
   title: string;
   point: string;
+  gender?: 'male' | 'female';  // 미지정 시 공용
 }
 
 interface SubPartData {
@@ -41,85 +53,153 @@ interface SituationShortcut {
   desc: string;
   partId: string;
   symptomTitle: string;
+  gender?: 'male' | 'female';  // 미지정 시 공용
 }
 
-// ── 부위 데이터 (10~30대 공감형 카피) ──
+// ── 부위 데이터 (10~30대 공감형 카피 · 성별 맞춤 증상 포함) ──
 const SUB_PARTS: Record<string, SubPartData> = {
+  // ────── 머리 ──────
   head_main: { name: '머리', group: 'head', symptoms: [
-    { title: '머리가 지끈지끈할 때', point: '백회혈' },
+    { title: '머리가 지끈지끈 아파올 때', point: '백회혈' },
     { title: '머리가 멍하고 핑 돌 때', point: '풍지혈' },
     { title: '숙취로 머리가 깨질 것 같을 때', point: '풍지혈' },
-    { title: '집중이 안 되고 멍할 때', point: '백회혈' },
+    { title: '집중이 안 되고 자꾸 멍때릴 때', point: '백회혈' },
+    { title: '편두통이 한쪽만 콕콕 찌를 때', point: '태양혈' },
+    { title: '잠을 못 자서 머리가 무거울 때', point: '백회혈' },
+    { title: '생리 전후로 머리가 지끈거릴 때', point: '풍지혈', gender: 'female' },
   ] },
+  // ────── 눈 ──────
   eyes: { name: '눈', group: 'head', symptoms: [
     { title: '화면 보다가 눈이 뻑뻑할 때', point: '찬죽혈' },
     { title: '눈이 빨갛고 건조할 때', point: '태양혈' },
     { title: '눈 밑이 파르르 떨릴 때', point: '사백혈' },
+    { title: '눈 앞이 침침하고 흐릿할 때', point: '찬죽혈' },
+    { title: '눈이 부어서 아침이 괴로울 때', point: '사백혈' },
+    { title: '렌즈 오래 끼고 눈이 따가울 때', point: '태양혈', gender: 'female' },
   ] },
+  // ────── 귀 ──────
+  ear: { name: '귀', group: 'head', symptoms: [
+    { title: '이어폰 오래 끼고 귀가 먹먹할 때', point: '이문혈' },
+    { title: '귀에서 삐- 소리가 날 때', point: '청궁혈' },
+    { title: '비행기 타면 귀가 꽉 막힐 때', point: '예풍혈' },
+    { title: '귀 뒤가 뻐근하고 당길 때', point: '예풍혈' },
+  ] },
+  // ────── 볼·안면 ──────
+  face: { name: '볼·안면', group: 'head', symptoms: [
+    { title: '아침에 얼굴이 퉁퉁 부었을 때', point: '협거혈' },
+    { title: '이가 아파서 밥을 못 먹을 때', point: '하관혈' },
+    { title: '턱이 뚝뚝 소리나고 아플 때', point: '하관혈' },
+    { title: '볼이 뻣뻣하고 입 벌리기 힘들 때', point: '협거혈' },
+    { title: '안면 비대칭이 신경 쓰일 때', point: '협거혈', gender: 'female' },
+  ] },
+  // ────── 목 ──────
   neck: { name: '목', group: 'head', symptoms: [
     { title: '뒷목이 뻣뻣하고 당길 때', point: '천주혈' },
     { title: '목이 안 돌아갈 정도로 뻐근할 때', point: '풍지혈' },
+    { title: '거북목이 심해서 목이 뚝뚝 소리날 때', point: '천주혈' },
+    { title: '자고 일어났더니 목을 못 돌리겠을 때', point: '풍지혈' },
   ] },
+  // ────── 어깨 ──────
   shoulder: { name: '어깨', group: 'chest', note: '양쪽 동일하게 적용', symptoms: [
     { title: '어깨가 돌덩이처럼 굳었을 때', point: '견정혈' },
     { title: '등 뒤 날개뼈가 쑤실 때', point: '천종혈' },
     { title: '하루종일 앉아있더니 어깨가 올라갔을 때', point: '견정혈' },
+    { title: '가방 메고 다녔더니 어깨가 찌릿할 때', point: '천종혈' },
+    { title: '어깨가 무거워서 팔 들기 싫을 때', point: '견정혈' },
   ] },
+  // ────── 가슴 ──────
   chest_main: { name: '가슴', group: 'chest', symptoms: [
     { title: '가슴이 답답하고 숨이 막힐 때', point: '단중혈' },
     { title: '긴장해서 숨이 얕아질 때', point: '옥당혈' },
     { title: '긴장하면 심장이 두근두근할 때', point: '단중혈' },
+    { title: '한숨이 자꾸 나오는 날', point: '단중혈' },
+    { title: '생리 전 가슴이 빵빵하고 아플 때', point: '옥당혈', gender: 'female' },
   ] },
+  // ────── 상복부 ──────
   abdomen_main: { name: '상복부', group: 'abdomen', symptoms: [
     { title: '방금 먹은 게 안 내려갈 때', point: '중완혈' },
     { title: '속이 쓰리고 울렁거릴 때', point: '거궐혈' },
     { title: '먹고 나서 배가 빵빵할 때', point: '중완혈' },
     { title: '배에서 소리만 나고 소화가 안 될 때', point: '거궐혈' },
+    { title: '스트레스 받으면 속이 바로 아플 때', point: '중완혈' },
+    { title: '아침마다 속이 메스꺼울 때', point: '거궐혈' },
   ] },
+  // ────── 하복부·골반 ──────
   pelvis: { name: '하복부·골반', group: 'abdomen', symptoms: [
-    { title: '그날이 너무 아플 때', point: '관원혈(단전)' },
     { title: '화장실이 안 통할 때', point: '천추혈' },
     { title: '급하게 화장실 가야 할 때', point: '천추혈' },
     { title: '아랫배가 차갑고 으슬으슬할 때', point: '관원혈(단전)' },
+    { title: '아랫배가 빵빵하고 가스 찰 때', point: '천추혈' },
+    { title: '그날이 너무 아플 때', point: '관원혈(단전)', gender: 'female' },
+    { title: '생리 전 아랫배가 묵직하게 당길 때', point: '관원혈(단전)', gender: 'female' },
+    { title: '골반이 뻐근하고 불편할 때', point: '관원혈(단전)', gender: 'female' },
   ] },
+  // ────── 등 ──────
   back_upper: { name: '등', group: 'back', symptoms: [
     { title: '등에 담 걸린 것 같을 때', point: '풍문혈' },
     { title: '등이 뻣뻣하고 결릴 때', point: '풍문혈' },
+    { title: '숨 크게 쉴 때 등이 뻐근할 때', point: '풍문혈' },
+    { title: '등 뒤로 손이 안 닿을 만큼 굳었을 때', point: '풍문혈' },
   ] },
+  // ────── 허리 ──────
   back_lower: { name: '허리', group: 'back', symptoms: [
     { title: '허리가 하루종일 욱신거릴 때', point: '신수혈' },
     { title: '허리 삐끗해서 못 움직일 때', point: '요양관혈' },
     { title: '엉덩이부터 다리까지 저릴 때', point: '환도혈' },
     { title: '오래 앉아서 허리가 끊어질 것 같을 때', point: '신수혈' },
+    { title: '아침에 일어날 때 허리가 안 펴질 때', point: '요양관혈' },
+    { title: '생리 때 허리가 끊어지는 것 같을 때', point: '신수혈', gender: 'female' },
   ] },
+  // ────── 윗팔 ──────
   arm_upper: { name: '윗팔', group: 'arms', note: '양쪽 동일하게 적용', symptoms: [
     { title: '어깨부터 팔까지 찌릿할 때', point: '견우혈' },
+    { title: '팔을 올리면 뚝뚝 소리 날 때', point: '견우혈' },
+    { title: '윗팔이 저리고 감각이 없을 때', point: '견우혈' },
   ] },
+  // ────── 아랫팔 ──────
   arm_lower: { name: '아랫팔', group: 'arms', note: '양쪽 동일하게 적용', symptoms: [
     { title: '팔뚝이 시큰시큰할 때', point: '수삼리혈' },
     { title: '손목 쓸 때마다 찌릿할 때', point: '내관혈' },
     { title: '멀미나서 속이 울렁거릴 때', point: '내관혈' },
+    { title: '마우스 오래 잡아서 팔이 뻐근할 때', point: '수삼리혈' },
   ] },
+  // ────── 손 ──────
   hand: { name: '손', group: 'arms', note: '양쪽 동일하게 적용', symptoms: [
     { title: '체했을 때 일단 여기부터', point: '합곡혈' },
     { title: '손이 차갑고 긴장될 때', point: '노궁혈' },
     { title: '두통약 없을 때 응급처치', point: '합곡혈' },
     { title: '발표 전에 손에 땀이 날 때', point: '노궁혈' },
+    { title: '손가락이 뻣뻣하고 안 구부러질 때', point: '합곡혈' },
   ] },
+  // ────── 허벅지 ──────
   leg_upper: { name: '허벅지', group: 'legs', note: '양쪽 동일하게 적용', symptoms: [
     { title: '허벅지가 무겁고 저릴 때', point: '풍시혈' },
     { title: '오래 앉았다가 일어나면 다리가 뻣뻣할 때', point: '풍시혈' },
+    { title: '허벅지 안쪽이 당기고 뻐근할 때', point: '혈해혈' },
+    { title: '생리 중 허벅지까지 묵직할 때', point: '혈해혈', gender: 'female' },
   ] },
+  // ────── 무릎 ──────
+  knee: { name: '무릎', group: 'legs', note: '양쪽 동일하게 적용', symptoms: [
+    { title: '계단 내려갈 때 무릎이 시큰할 때', point: '독비혈' },
+    { title: '무릎이 뻑뻑하고 잘 안 펴질 때', point: '양릉천혈' },
+    { title: '무릎 주변이 붓고 뻣뻣할 때', point: '혈해혈' },
+    { title: '운동 후 무릎이 욱신거릴 때', point: '독비혈' },
+  ] },
+  // ────── 종아리 ──────
   leg_lower: { name: '종아리', group: 'legs', note: '양쪽 동일하게 적용', symptoms: [
     { title: '다리 붓고 밤에 쥐날 때', point: '승산혈' },
     { title: '다리에 힘이 안 들어갈 때', point: '족삼리혈' },
     { title: '오래 서있어서 종아리가 터질 것 같을 때', point: '승산혈' },
+    { title: '저녁만 되면 다리가 퉁퉁 부을 때', point: '승산혈' },
+    { title: '하이힐 신고 종아리가 땡길 때', point: '승산혈', gender: 'female' },
   ] },
+  // ────── 발 ──────
   foot: { name: '발', group: 'legs', note: '양쪽 동일하게 적용', symptoms: [
     { title: '온몸이 찌뿌둥하고 지칠 때', point: '용천혈' },
     { title: '자려고 누웠는데 잠이 안 올 때', point: '태충혈' },
     { title: '스트레스 받아서 화가 치밀 때', point: '태충혈' },
     { title: '발이 차가워서 잠이 안 올 때', point: '용천혈' },
+    { title: '하루종일 걸었더니 발바닥이 불탈 때', point: '용천혈' },
   ] },
 };
 
@@ -289,7 +369,7 @@ const POINT_DETAILS: Record<string, PointDetail> = {
   },
   '사백혈': {
     name: '사백혈',
-    location: '눈동자 바로 아래, 눈 아래뼈 가장자리에서 손가락 한 마디 정도(약 2cm) 아래 움푹한 곳', // ✅ 1촌→손가락 한 마디
+    location: '눈동자 바로 아래, ��� 아래뼈 가장자리에서 손가락 한 마디 정도(약 2cm) 아래 움푹한 곳', // ✅ 1촌→손가락 한 마디
     method: '검지로 눈 아래를 부드럽게 눌러줍니다. 강하게 누르지 마세요.',
     duration: '3~5초간 부드럽게 누르기',
     repetitions: '10~12회 반복',
@@ -351,18 +431,86 @@ const POINT_DETAILS: Record<string, PointDetail> = {
     repetitions: '10~15회 반복 (양손)',
     effects: ['손목 통증 완화', '멀미·메스꺼움 해소', '심장 안정', '정서 안정'],
   },
+  // ── 귀 혈자리 ──
+  '이문혈': {
+    name: '이문혈',
+    location: '귀 앞쪽, 귀구슬(이주) 바로 앞 움푹 파인 곳, 입을 벌리면 더 깊어지는 지점',
+    method: '검지로 귀 앞쪽 움푹한 곳을 부드럽게 눌러줍니다. 입을 살짝 벌린 상태에서 하면 좋아요.',
+    duration: '3~5초간 누르기',
+    repetitions: '10~12회 반복 (양쪽)',
+    effects: ['귀 먹먹함 해소', '청력 보호', '이명 완화', '귀 주변 혈행 촉진'],
+  },
+  '청궁혈': {
+    name: '청궁혈',
+    location: '귀구슬(이주) 앞, 이문혈 바로 아래, 입을 벌리면 움푹 들어가는 곳',
+    method: '검지를 귀 앞에 대고 부드럽게 원을 그리며 눌러줍니다.',
+    duration: '5~7초간 지속 압박',
+    repetitions: '10~15회 반복 (양쪽)',
+    effects: ['이명 완화', '청력 회복 보조', '귀 충만감 해소', '스트레스 해소'],
+  },
+  '예풍혈': {
+    name: '예풍혈',
+    location: '귓불 뒤쪽, 귀 뒤 뼈(유양돌기)와 턱뼈 사이 움푹 파인 곳',
+    method: '양쪽 엄지를 귀 뒤에 대고 두개골 방향으로 부드럽게 눌러줍니다.',
+    duration: '5~7초간 누르기',
+    repetitions: '8~10회 반복 (양쪽)',
+    effects: ['귀 막힘 해소', '안면 신경 이완', '턱 긴장 완화', '귀 뒤 통증 해소'],
+  },
+  // ── 안면 혈자리 ──
+  '협거혈': {
+    name: '협거혈',
+    location: '광대뼈 아래쪽, 귀 앞에서 광대뼈를 따라 손가락 한 마디(약 2cm) 앞 움푹한 곳',
+    method: '양쪽 검지로 광대뼈 아래를 부드럽게 원형으로 마사지합니다.',
+    duration: '3~5초간 부드럽게 누르기',
+    repetitions: '10~15회 반복',
+    effects: ['안면 부기 완화', '볼 혈행 촉진', '안면 근육 이완', '얼굴 라인 정리'],
+  },
+  '하관혈': {
+    name: '하관혈',
+    location: '귀 앞쪽, 광대뼈 아래 가장자리에서 턱을 벌리면 움푹 파이는 곳',
+    method: '검지로 귀 앞 광대뼈 아래를 부드럽게 눌러줍니다. 입을 살짝 벌린 상태로 시행하세요.',
+    duration: '3~5초간 누르기',
+    repetitions: '10~12회 반복 (양쪽)',
+    effects: ['치통 완화', '턱관절 통증 해소', '안면 경련 완화', '입 벌리기 편해짐'],
+  },
+  // ── 무릎 혈자리 ──
+  '독비혈': {
+    name: '독비혈',
+    location: '무릎 앞쪽, 무릎뼈(슬개골) 바로 아래 바깥쪽 움푹 파인 곳, 무릎을 굽히면 찾기 쉬움',
+    method: '엄지로 무릎 아래 바깥쪽 오목한 부분을 눌러줍니다.',
+    duration: '5~7초간 눌러 풀기',
+    repetitions: '10~15회 반복 (양쪽)',
+    effects: ['무릎 통증 완화', '무릎 관절 유연성', '하체 혈행 촉진', '계단 오르내리기 편해짐'],
+  },
+  '양릉천혈': {
+    name: '양릉천혈',
+    location: '무릎 바깥쪽 아래, 종아리뼈 머리 부분(볼록 튀어나온 뼈) 바로 앞 아래 움푹한 곳',
+    method: '엄지로 종아리뼈 머리 앞아래를 강하게 눌러줍니다.',
+    duration: '5~7초간 누르기',
+    repetitions: '10~15회 반복 (양쪽)',
+    effects: ['무릎 뻣뻣함 해소', '근육·인대 이완', '하체 유연성 개선', '관절 움직임 향상'],
+  },
+  '혈해혈': {
+    name: '혈해혈',
+    location: '무릎 안쪽 위, 무릎뼈 안쪽 모서리에서 허벅지 방향으로 손가락 세 마디(약 5cm) 위',
+    method: '엄지로 허벅지 안쪽을 부드럽게 눌러줍니다.',
+    duration: '5~7초간 누르기',
+    repetitions: '10~15회 반복 (양쪽)',
+    effects: ['무릎 부기 완화', '혈액순환 촉진', '생리통 보조', '하체 냉증 개선'],
+  },
 };
 
 // ── 상황별 바로가기 (12개) ──
 const SITUATION_SHORTCUTS: SituationShortcut[] = [
   { icon: '🚽', title: '급하게 화장실 가야 할 때',   desc: '장 운동 활성화',             partId: 'pelvis',       symptomTitle: '급하게 화장실 가야 할 때' },
   { icon: '🍻', title: '숙취로 머리가 깨질 때',      desc: '두통 해소 + 해독',           partId: 'head_main',    symptomTitle: '숙취로 머리가 깨질 것 같을 때' },
-  { icon: '😪', title: '회의 중에 졸릴 때',          desc: '정신 각성 + 집중력',         partId: 'head_main',    symptomTitle: '집중이 안 되고 멍할 때' },
+  { icon: '😪', title: '회의 중에 졸릴 때',          desc: '정신 각성 + 집중력',         partId: 'head_main',    symptomTitle: '집중이 안 되고 자꾸 멍때릴 때' },
   { icon: '🫣', title: '발표 전에 떨릴 때',          desc: '긴장 완화 + 마음 안정',      partId: 'hand',         symptomTitle: '발표 전에 손에 땀이 날 때' },
   { icon: '🍕', title: '먹고 나서 배 터질 것 같을 때', desc: '소화 촉진 + 더부룩함 해소',  partId: 'abdomen_main', symptomTitle: '먹고 나서 배가 빵빵할 때' },
   { icon: '📱', title: '화면 너무 오래 봤을 때',      desc: '눈 피로 + 시력 보호',        partId: 'eyes',         symptomTitle: '화면 보다가 눈이 뻑뻑할 때' },
   { icon: '🌙', title: '새벽인데 잠이 안 올 때',      desc: '수면 유도 + 이완',           partId: 'foot',         symptomTitle: '자려고 누웠는데 잠이 안 올 때' },
-  { icon: '💢', title: '그날이 너무 힘들 때',         desc: '하복부 온기 + 통증 완화',    partId: 'pelvis',       symptomTitle: '그날이 너무 아플 때' },
+  { icon: '💢', title: '그날이 너무 힘들 때',         desc: '하복부 온기 + 통증 완화',    partId: 'pelvis',       symptomTitle: '그날이 너무 아플 때', gender: 'female' },
+  { icon: '👠', title: '하이힐 신고 다리 아플 때',    desc: '종아리 이완 + 부기 제거',    partId: 'leg_lower',    symptomTitle: '하이힐 신고 종아리가 땡길 때', gender: 'female' },
   { icon: '🪨', title: '어깨가 돌덩이가 됐을 때',     desc: '어깨 이완 + 혈행 촉진',     partId: 'shoulder',     symptomTitle: '어깨가 돌덩이처럼 굳었을 때' },
   { icon: '⚡', title: '체했을 때 응급처치',          desc: '체기 해소 + 소화 촉진',      partId: 'hand',         symptomTitle: '체했을 때 일단 여기부터' },
   { icon: '🪑', title: '오래 앉아서 허리 끊어질 때',   desc: '허리 통증 완화',             partId: 'back_lower',   symptomTitle: '오래 앉아서 허리가 끊어질 것 같을 때' },
@@ -378,17 +526,17 @@ interface BranchData {
 }
 
 const BRANCHES: BranchData[] = [
-  { name: '잠실점',     naverUrl: '#naver-jamsil',     kakaoUrl: '#kakao-jamsil' },
-  { name: '대치점',     naverUrl: '#naver-daechi',     kakaoUrl: '#kakao-daechi' },
-  { name: '강남점',     naverUrl: '#naver-gangnam',    kakaoUrl: '#kakao-gangnam' },
-  { name: '분당점',     naverUrl: '#naver-bundang',    kakaoUrl: '#kakao-bundang' },
-  { name: '하남미사점', naverUrl: '#naver-hanam',      kakaoUrl: '#kakao-hanam' },
-  { name: '마곡점',     naverUrl: '#naver-magok',      kakaoUrl: '#kakao-magok' },
-  { name: '천안아산점', naverUrl: '#naver-cheonan',    kakaoUrl: '#kakao-cheonan' },
-  { name: '여의도점',   naverUrl: '#naver-yeouido',    kakaoUrl: '#kakao-yeouido' },
-  { name: '광교점',     naverUrl: '#naver-gwanggyo',   kakaoUrl: '#kakao-gwanggyo' },
-  { name: '과천점',     naverUrl: '#naver-gwacheon',   kakaoUrl: '#kakao-gwacheon' },
-  { name: '광화문점',   naverUrl: '#naver-gwanghwamun', kakaoUrl: '#kakao-gwanghwamun' },
+  { name: '잠실점',     naverUrl: 'https://m.booking.naver.com/booking/13/bizes/232631?theme=place', kakaoUrl: 'https://pf.kakao.com/_xbclHK/chat' },
+  { name: '대치점',     naverUrl: 'https://m.booking.naver.com/booking/13/bizes/362944?theme=place', kakaoUrl: 'https://pf.kakao.com/_UYlHK/chat' },
+  { name: '강남점',     naverUrl: 'https://m.booking.naver.com/booking/13/bizes/439977?theme=place', kakaoUrl: 'https://pf.kakao.com/_iplHK/chat' },
+  { name: '분당점',     naverUrl: 'https://m.booking.naver.com/booking/13/bizes/600734?theme=place&area=pll', kakaoUrl: 'https://pf.kakao.com/_xcfVzb/chat' },
+  { name: '하남미사점', naverUrl: 'https://booking.naver.com/booking/13/bizes/747833?area=pll', kakaoUrl: 'https://pf.kakao.com/_Xrxnqxj/chat' },
+  { name: '마곡점',     naverUrl: 'https://booking.naver.com/booking/13/bizes/762585?theme=place&entry=pll&area=pll', kakaoUrl: 'https://pf.kakao.com/_wdruxj' },
+  { name: '천안아산점', naverUrl: 'https://booking.naver.com/booking/13/bizes/939640?area=pll', kakaoUrl: 'https://pf.kakao.com/_GxiWAG/chat' },
+  { name: '여의도점',   naverUrl: 'https://booking.naver.com/booking/13/bizes/964886?theme=place&area=pll', kakaoUrl: 'https://pf.kakao.com/_MdxhxhG/chat' },
+  { name: '광교점',     naverUrl: 'https://m.booking.naver.com/booking/13/bizes/1336407?theme=place&service-target=map-pc&lang=ko&area=plt&map-search=1', kakaoUrl: 'https://letsgoteo.com/teo_gwanggyo' },
+  { name: '과천점',     naverUrl: 'https://m.booking.naver.com/booking/13/bizes/1561211?theme=place&service-target=map-pc&lang=ko&area=plt&map-search=1', kakaoUrl: 'https://pf.kakao.com/_aNrQn' },
+  { name: '광화문점',   naverUrl: 'https://map.naver.com/p/entry/place/2076008882?placePath=/home?entry=plt&from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602131145&locale=ko&svcName=map_pcv5&searchType=place&lng=126.9798606&lat=37.5708344&c=15.00,0,0,0,dh', kakaoUrl: 'https://pf.kakao.com/_xcDQhX' },
 ];
 
 
@@ -504,32 +652,24 @@ const FLOW_STEPS = [
   { short: '마무리' },
 ];
 
-function StepIndicator({ currentStep, isDark }: { currentStep: number; isDark: boolean }) {
+function StepIndicator({ currentStep, isDark, gender }: { currentStep: number; isDark: boolean; gender: Gender }) {
+  const ac = getAccent(gender);
   return (
-    <div className="flex items-center gap-1 w-full max-w-xs">
-      {FLOW_STEPS.map((s, i) => {
+    <div className="flex items-center gap-1.5">
+      {FLOW_STEPS.map((_, i) => {
         const isActive = i === currentStep;
         const isDone = i < currentStep;
         return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <div
-              className="w-full h-[3px] rounded-full transition-all duration-500"
-              style={{
-                backgroundColor: isDone || isActive ? '#0D9488' : isDark ? 'rgba(99,99,102,0.3)' : 'rgba(209,213,219,0.6)',
-                opacity: isActive ? 1 : isDone ? 0.6 : 0.4,
-              }}
-            />
-            <span
-              className="text-[9px] transition-all duration-300 whitespace-nowrap"
-              style={{
-                color: isActive ? '#0D9488' : isDone ? (isDark ? '#6B7280' : '#9CA3AF') : (isDark ? 'rgba(99,99,102,0.5)' : 'rgba(156,163,175,0.5)'),
-                fontWeight: isActive ? 700 : 500,
-                opacity: isActive || isDone ? 1 : 0.6,
-              }}
-            >
-              {s.short}
-            </span>
-          </div>
+          <div
+            key={i}
+            className="rounded-full transition-all duration-500"
+            style={{
+              width: isActive ? 16 : 5,
+              height: 5,
+              backgroundColor: isDone || isActive ? ac.primary : isDark ? 'rgba(99,99,102,0.25)' : 'rgba(209,213,219,0.5)',
+              opacity: isActive ? 1 : isDone ? 0.6 : 0.35,
+            }}
+          />
         );
       })}
     </div>
@@ -541,12 +681,17 @@ function StepIndicator({ currentStep, isDark }: { currentStep: number; isDark: b
 // 인트로 오버레이
 // ============================================================
 
-function IntroOverlay({ onStart }: { onStart: () => void }) {
+function IntroOverlay({ onStart, onDirectReserve }: { onStart: () => void; onDirectReserve: () => void }) {
   const [exiting, setExiting] = useState(false);
 
   const handleStart = () => {
     setExiting(true);
     setTimeout(onStart, 700);
+  };
+
+  const handleReserve = () => {
+    setExiting(true);
+    setTimeout(onDirectReserve, 700);
   };
 
   return (
@@ -589,26 +734,32 @@ function IntroOverlay({ onStart }: { onStart: () => void }) {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
         <motion.div
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 180, damping: 18, delay: 0.15 }}
-          className="mb-8"
+          initial={{ scale: 0, y: 40, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 160, damping: 16, delay: 0.1 }}
+          className="mb-6"
         >
-          <div className="w-24 h-24 rounded-[28px] bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-xl shadow-teal-500/25 overflow-hidden">
-            <img src="/99.png" alt="로고" className="w-16 h-16 object-contain" onError={(e) => {
-              // 로고 없으면 기본 SVG 폴백
-              const parent = (e.target as HTMLImageElement).parentElement;
-              if (parent) {
-                (e.target as HTMLImageElement).style.display = 'none';
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('width', '48');
-                svg.setAttribute('height', '48');
-                svg.setAttribute('viewBox', '0 0 48 48');
-                svg.innerHTML = '<circle cx="24" cy="11" r="5.5" fill="white" opacity="0.92"/><path d="M24 18C18.5 18 15 24 15 30L18.5 42H29.5L33 30C33 24 29.5 18 24 18Z" fill="white" opacity="0.92"/><circle cx="24" cy="27" r="2" fill="#0d9488"/>';
-                parent.appendChild(svg);
-              }
-            }} />
-          </div>
+          <motion.div
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            className="relative"
+          >
+            {/* Lottie 숨쉬기 애니메이션 — 마스코트 뒤 배경 */}
+            <div className="absolute inset-0 -m-16 flex items-center justify-center pointer-events-none z-0">
+              <DotLottieReact
+                src="https://lottie.host/f4c8f4c7-01e4-4ef2-9663-6030129a32b3/jUyGtXoy2c.lottie"
+                loop
+                autoplay
+                style={{ width: '340px', height: '340px', opacity: 0.45 }}
+              />
+            </div>
+            <img
+              src={mascotImg}
+              alt="마스코트"
+              className="relative z-10 w-56 h-64 md:w-72 md:h-80 object-contain drop-shadow-xl"
+            />
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-32 h-5 bg-teal-500/15 dark:bg-teal-400/10 rounded-full blur-md z-10" />
+          </motion.div>
         </motion.div>
 
         <motion.span
@@ -647,20 +798,36 @@ function IntroOverlay({ onStart }: { onStart: () => void }) {
           딱 맞는 지압 포인트를 알려줄게요.
         </motion.p>
 
-        <motion.button
+        <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.65 }}
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleStart}
-          className="group relative px-10 py-4 bg-gradient-to-r from-teal-600 to-emerald-500 text-white rounded-2xl text-[17px] shadow-lg shadow-teal-500/25 cursor-pointer overflow-hidden"
-          style={{ fontWeight: 700 }}
+          className="flex flex-col gap-2.5 w-full max-w-[280px]"
         >
-          {/* 버튼 광택 애니메이션 */}
-          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-          <span className="relative">시작해볼까 →</span>
-        </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleStart}
+            className="group relative w-full py-4 bg-gradient-to-r from-teal-600 to-emerald-500 text-white rounded-2xl text-[16px] shadow-lg shadow-teal-500/25 cursor-pointer overflow-hidden"
+            style={{ fontWeight: 700 }}
+          >
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            <span className="relative">시작해볼까 →</span>
+          </motion.button>
+
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleReserve}
+            className="w-full py-3.5 rounded-2xl text-[14px] cursor-pointer transition-colors duration-200 border border-teal-500/30 dark:border-teal-400/25 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30 backdrop-blur-sm"
+            style={{ fontWeight: 600 }}
+          >
+            바로 예약하기
+          </motion.button>
+        </motion.div>
       </motion.div>
     </motion.div>
   );
@@ -678,6 +845,7 @@ function ResultDetail({
   point,
   onBack,
   onDisclaimer,
+  gender,
 }: {
   partName: string;
   partNote?: string;
@@ -685,10 +853,12 @@ function ResultDetail({
   point: PointDetail;
   onBack: () => void;
   onDisclaimer: () => void;
+  gender: Gender;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const isDarkNow = document.documentElement.classList.contains('dark');
+  const ac = getAccent(gender);
 
   const handleSaveImage = async () => {
     if (!cardRef.current || saving) return;
@@ -717,7 +887,7 @@ function ResultDetail({
       link.download = `혈자리_${point.name.split(' ')[0]}.png`;
       link.href = dataUrl;
       link.click();
-      toast.success('이미지 저장 완료!');
+      toast.success('이���지 저장 완료!');
     } catch {
       toast.error('저장에 실패했어요.');
     }
@@ -736,7 +906,7 @@ function ResultDetail({
       <div className="px-5 md:px-6 pt-4 md:pt-8 pb-3 md:pb-4 sticky top-0 z-10" style={{ backgroundColor: isDarkNow ? 'rgba(28,28,30,0.92)' : 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-gray-400 dark:text-gray-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors mb-2 cursor-pointer text-[13px]"
+          className="flex items-center gap-1 text-gray-400 dark:text-gray-500 transition-colors mb-2 cursor-pointer text-[13px]"
           style={{ fontWeight: 500 }}
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -757,7 +927,7 @@ function ResultDetail({
         <div className="px-5 md:px-6 pt-6 pb-5" style={{ backgroundColor: isDarkNow ? '#1C1C1E' : '#F7F7F8' }}>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[11px] text-teal-600 dark:text-teal-400 mb-1.5 tracking-wide" style={{ fontWeight: 600 }}>ACUPOINT</p>
+              <p className="text-[11px] mb-1.5 tracking-wide" style={{ fontWeight: 600, color: ac.primary }}>ACUPOINT</p>
               <h2 className="text-[26px] md:text-[30px] text-gray-900 dark:text-gray-50 tracking-tight mb-1" style={{ fontWeight: 800, lineHeight: 1.15 }}>
                 {point.name}
               </h2>
@@ -766,8 +936,8 @@ function ResultDetail({
               </p>
             </div>
             <div className="mt-2 mr-1 relative">
-              <span className="block w-3 h-3 rounded-full bg-teal-500" style={{ boxShadow: '0 0 12px rgba(13,148,136,0.4)' }} />
-              <span className="absolute inset-0 w-3 h-3 rounded-full bg-teal-500 animate-ping opacity-30" />
+              <span className="block w-3 h-3 rounded-full" style={{ backgroundColor: ac.primary, boxShadow: `0 0 12px ${ac.glow}` }} />
+              <span className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-30" style={{ backgroundColor: ac.primary }} />
             </div>
           </div>
         </div>
@@ -778,17 +948,19 @@ function ResultDetail({
           {/* 위치 */}
           <div className="rounded-2xl p-4" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
             <div className="flex items-center gap-2 mb-2">
-              <MapPin className="w-4 h-4 text-teal-500" />
-              <span className="text-[12px] text-teal-600 dark:text-teal-400 tracking-wide" style={{ fontWeight: 700 }}>위치</span>
+              <MapPin className="w-4 h-4" style={{ color: ac.primary }} />
+              <span className="text-[12px] tracking-wide" style={{ fontWeight: 700, color: ac.primary }}>위치</span>
             </div>
             <p className="text-[14px] text-gray-700 dark:text-gray-300 !leading-[1.8] pl-6" style={{ fontWeight: 400 }}>{point.location}</p>
+            {/* 시각 가이드 다이어그램 */}
+            <AcupointGuide pointName={point.name} accentColor={ac.primary} isDark={isDarkNow} />
           </div>
 
           {/* 지압 방법 */}
           <div className="rounded-2xl p-4" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
             <div className="flex items-center gap-2 mb-2">
-              <Hand className="w-4 h-4 text-teal-500" />
-              <span className="text-[12px] text-teal-600 dark:text-teal-400 tracking-wide" style={{ fontWeight: 700 }}>방법</span>
+              <Hand className="w-4 h-4" style={{ color: ac.primary }} />
+              <span className="text-[12px] tracking-wide" style={{ fontWeight: 700, color: ac.primary }}>방법</span>
             </div>
             <p className="text-[14px] text-gray-700 dark:text-gray-300 !leading-[1.8] pl-6" style={{ fontWeight: 400 }}>{point.method}</p>
           </div>
@@ -814,8 +986,8 @@ function ResultDetail({
           {/* 기대 효과 — 아웃라인 칩 */}
           <div className="rounded-2xl p-4" style={{ backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}` }}>
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-teal-500" />
-              <span className="text-[12px] text-teal-600 dark:text-teal-400 tracking-wide" style={{ fontWeight: 700 }}>기대 효과</span>
+              <Sparkles className="w-4 h-4" style={{ color: ac.primary }} />
+              <span className="text-[12px] tracking-wide" style={{ fontWeight: 700, color: ac.primary }}>이럴 때 좋아요</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {point.effects.map((e, i) => (
@@ -823,9 +995,9 @@ function ResultDetail({
                   key={i}
                   className="px-3 py-1.5 rounded-lg text-[12px]"
                   style={{
-                    color: isDarkNow ? 'rgba(153,246,228,0.9)' : '#0F766E',
-                    backgroundColor: isDarkNow ? 'rgba(13,148,136,0.1)' : 'rgba(13,148,136,0.04)',
-                    border: `1px solid ${isDarkNow ? 'rgba(13,148,136,0.2)' : 'rgba(13,148,136,0.12)'}`,
+                    color: isDarkNow ? ac.textLightDark : ac.textLight,
+                    backgroundColor: isDarkNow ? ac.bgDark : ac.bg,
+                    border: `1px solid ${isDarkNow ? ac.borderDark : ac.border}`,
                     fontWeight: 500,
                   }}
                 >
@@ -843,51 +1015,48 @@ function ResultDetail({
             </p>
           </div>
 
-          {/* 워터마크 */}
-          <div className="flex items-center justify-center gap-2 pt-2 pb-1 opacity-40">
-            <img src="/99.png" alt="로고" className="w-4 h-4 rounded object-contain" />
-            <span className="text-[10px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 500 }}>
-              내 몸이 보내는 신호, 혈자리로 풀어봐
-            </span>
-          </div>
+
 
         </div>
         </div>{/* cardRef 끝 */}
 
         {/* ── 하단 버튼 ── */}
-        <div className="px-4 md:px-6 pt-2 pb-6 space-y-2" style={{ backgroundColor: isDarkNow ? '#1C1C1E' : '#F7F7F8' }}>
-          <button
-            onClick={handleSaveImage}
-            disabled={saving}
-            className="w-full py-3.5 rounded-[14px] text-[14px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{ fontWeight: 700, backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', color: isDarkNow ? '#E5E5EA' : '#1C1C1E', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}
-          >
-            <Download className="w-4 h-4 opacity-50" />
-            {saving ? '저장 중...' : '이미지로 저장'}
-          </button>
+        <div className="px-4 md:px-6 pt-2 pb-6 space-y-2.5" style={{ backgroundColor: isDarkNow ? '#1C1C1E' : '#F7F7F8' }}>
           <button
             onClick={() => { haptic(); onDisclaimer(); }}
-            className="w-full py-3.5 bg-teal-600 text-white rounded-[14px] text-[14px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-            style={{ fontWeight: 700 }}
+            className="w-full py-3.5 text-white rounded-[14px] text-[15px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+            style={{ fontWeight: 700, backgroundColor: ac.primary }}
           >
-            더 정확하게 알고 싶다면
+            <Calendar className="w-4 h-4" />
+            가까운 한의원 예약하기
           </button>
-          <button
-            onClick={async () => {
-              haptic();
-              if (navigator.share) {
-                try { await navigator.share({ title: '혈자리 가이드', text: `${symptom.title} → ${point.name}`, url: window.location.href }); } catch { /* cancelled */ }
-              } else {
-                await navigator.clipboard.writeText(`${symptom.title} → ${point.name}\n위치: ${point.location}\n방법: ${point.method}`);
-                toast.success('복사 완료! 붙여넣기 해봐요.');
-              }
-            }}
-            className="w-full py-3 text-gray-400 dark:text-gray-500 text-[13px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 hover:text-gray-600 dark:hover:text-gray-300"
-            style={{ fontWeight: 500 }}
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            공유하기
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSaveImage}
+              disabled={saving}
+              className="flex-1 py-3 rounded-[14px] text-[13px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ fontWeight: 600, backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', color: isDarkNow ? '#E5E5EA' : '#1C1C1E', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}
+            >
+              <Download className="w-4 h-4 opacity-60" />
+              {saving ? '저장 중...' : '저장'}
+            </button>
+            <button
+              onClick={async () => {
+                haptic();
+                if (navigator.share) {
+                  try { await navigator.share({ title: '혈자리 가이드', text: `${symptom.title} → ${point.name}`, url: window.location.href }); } catch { /* cancelled */ }
+                } else {
+                  await navigator.clipboard.writeText(`${symptom.title} → ${point.name}\n위치: ${point.location}\n방법: ${point.method}`);
+                  toast.success('복사 완료! 붙여넣기 해봐요.');
+                }
+              }}
+              className="flex-1 py-3 rounded-[14px] text-[13px] cursor-pointer active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+              style={{ fontWeight: 600, backgroundColor: isDarkNow ? '#2C2C2E' : '#FFFFFF', color: isDarkNow ? '#E5E5EA' : '#1C1C1E', border: `1px solid ${isDarkNow ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}` }}
+            >
+              <Share2 className="w-4 h-4 opacity-60" />
+              공유
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -899,7 +1068,8 @@ function ResultDetail({
 // 면책 모달
 // ============================================================
 
-function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestart: () => void }) {
+function DisclaimerModal({ onClose, onRestart, gender }: { onClose: () => void; onRestart: () => void; gender: Gender }) {
+  const ac = getAccent(gender);
   const [selectedBranch, setSelectedBranch] = useState<BranchData | null>(null);
   const [branchOpen, setBranchOpen] = useState(false);
 
@@ -907,11 +1077,12 @@ function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestar
     <motion.div className="fixed inset-0 z-[90] flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-label="면책 조항 및 예약">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <motion.div
-        className="relative bg-white dark:bg-[#2C2C2E] rounded-3xl shadow-2xl max-w-md w-full p-5 md:p-8 max-h-[90vh] overflow-y-auto"
+        className="relative z-10 bg-white dark:bg-[#2C2C2E] rounded-3xl shadow-2xl max-w-md w-full p-5 md:p-8 max-h-[90vh] overflow-y-auto"
         initial={{ scale: 0.9, y: 30 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 30 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        onClick={(e) => e.stopPropagation()}
       >
         <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer" aria-label="닫기">
           <X className="w-4 h-4" />
@@ -919,13 +1090,13 @@ function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestar
 
         <div className="flex flex-col items-center text-center">
           {/* 로고 */}
-          <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-900/40 dark:to-emerald-900/30 border border-teal-100 dark:border-teal-800/50 flex items-center justify-center mb-5 overflow-hidden">
-            <img src="/99.png" alt="로고" className="w-10 h-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <div className="w-16 h-16 rounded-[20px] flex items-center justify-center mb-5 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ac.bg}, ${ac.bg})`, border: `1px solid ${ac.border}` }}>
+            <img src={clinicLogo} alt="로고" className="w-10 h-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
 
           <h2 className="text-[22px] text-gray-900 dark:text-gray-100 tracking-tight mb-2.5 !leading-[1.3]" style={{ fontWeight: 700 }}>
             더 정확한 진단은<br />
-            <span className="text-teal-600 dark:text-teal-400">전문가한테 맡기자</span>
+            <span style={{ color: ac.primary }}>전문가한테 맡기자</span>
           </h2>
 
           <p className="text-gray-400 dark:text-gray-500 text-[14px] mb-5 !leading-[1.7]" style={{ fontWeight: 400 }}>
@@ -943,16 +1114,17 @@ function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestar
           {/* ─── 지점 선택 + 예약 섹션 ─── */}
           <div className="w-full mb-4">
             <div className="flex items-center gap-1.5 mb-2.5 ml-0.5">
-              <MapPin className="w-3.5 h-3.5 text-teal-500" />
+              <MapPin className="w-3.5 h-3.5" style={{ color: ac.primary }} />
               <span className="text-[12px] text-gray-500 dark:text-gray-400 tracking-wider" style={{ fontWeight: 700 }}>
                 가까운 지점에서 바로 예약
               </span>
             </div>
 
             {/* 지점 드롭다운 */}
-            <div className="relative mb-2.5">
+            <div className="mb-2.5">
               <button
-                onClick={() => setBranchOpen(!branchOpen)}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setBranchOpen(!branchOpen); }}
                 className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-[#3A3A3C] border border-gray-200 dark:border-gray-600 rounded-xl text-[14px] cursor-pointer active:scale-[0.99] transition-transform"
                 style={{ fontWeight: 600 }}
               >
@@ -966,19 +1138,21 @@ function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestar
               <AnimatePresence>
                 {branchOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: -8, scaleY: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scaleY: 1 }}
-                    exit={{ opacity: 0, y: -8, scaleY: 0.95 }}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#3A3A3C] border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl z-20 overflow-hidden max-h-[200px] overflow-y-auto origin-top"
+                    className="mt-1.5 bg-white dark:bg-[#3A3A3C] border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl overflow-hidden"
                   >
+                    <div className="max-h-[200px] overflow-y-auto">
                     {BRANCHES.map((branch) => (
                       <button
+                        type="button"
                         key={branch.name}
-                        onClick={() => { setSelectedBranch(branch); setBranchOpen(false); haptic(8); }}
+                        onClick={(e) => { e.stopPropagation(); setSelectedBranch(branch); setBranchOpen(false); haptic(8); }}
                         className={`w-full text-left px-4 py-2.5 text-[13px] cursor-pointer transition-colors ${
                           selectedBranch?.name === branch.name
-                            ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300'
+                            ? (gender === 'female' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300' : 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300')
                             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                         }`}
                         style={{ fontWeight: selectedBranch?.name === branch.name ? 700 : 500 }}
@@ -986,6 +1160,7 @@ function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestar
                         {branch.name}
                       </button>
                     ))}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1049,7 +1224,7 @@ function DisclaimerModal({ onClose, onRestart }: { onClose: () => void; onRestar
               친구한테 알려주기
             </button>
 
-            <button onClick={onRestart} className="flex items-center justify-center gap-2 w-full py-2.5 text-gray-400 dark:text-gray-500 text-[13px] cursor-pointer hover:text-teal-600 dark:hover:text-teal-400 transition-colors" style={{ fontWeight: 500 }}>
+            <button onClick={onRestart} className="flex items-center justify-center gap-2 w-full py-2.5 text-gray-400 dark:text-gray-500 text-[13px] cursor-pointer transition-colors" style={{ fontWeight: 500 }}>
               <RotateCcw className="w-3.5 h-3.5" />
               처음부터 다시 해볼래
             </button>
@@ -1082,14 +1257,17 @@ interface PanelContentProps {
   currentFlowStep: number;
   isDark: boolean;
   isMobile: boolean;
+  gender: Gender;
+  onMobileBack?: () => void;
 }
 
 function PanelContent({
   activeResult, selectedPartId, selectedCategoryId, searchQuery, setSearchQuery, searchResults,
   setHoveredPartId, setSelectedPartId,
   handleSymptomClick, handleShortcutClick, handlePartFromCategory, setActiveResult, setShowDisclaimer,
-  currentFlowStep, isDark, isMobile,
+  currentFlowStep, isDark, isMobile, gender, onMobileBack,
 }: PanelContentProps) {
+  const ac = getAccent(gender);
   return (
     <AnimatePresence mode="wait">
       {activeResult ? (
@@ -1108,6 +1286,7 @@ function PanelContent({
           }}
           onBack={() => setActiveResult(null)}
           onDisclaimer={setShowDisclaimer}
+          gender={gender}
         />
       ) : (
         <motion.div
@@ -1122,12 +1301,12 @@ function PanelContent({
           {!isMobile && (
             <div className="px-8 pt-10 pb-5 bg-white/80 dark:bg-[#2C2C2E]/80 backdrop-blur-xl sticky top-0 z-10 border-b border-gray-100/50 dark:border-gray-700/50">
               <div className="flex justify-center mb-4">
-                <StepIndicator currentStep={currentFlowStep} isDark={isDark} />
+                <StepIndicator currentStep={currentFlowStep} isDark={isDark} gender={gender} />
               </div>
               <h1 className="text-[28px] text-gray-900 dark:text-gray-100 mb-5 tracking-tight" style={{ fontWeight: 700 }}>
-                오늘 몸 어디가 삐걱대?
+                {gender === 'female' ? '오늘 어디가 신경 쓰여?' : '오늘 몸 어디가 삐걱대?'}
               </h1>
-              <div className="flex items-center bg-[#F2F2F7] dark:bg-[#3A3A3C] rounded-[14px] px-4 py-3 transition-all focus-within:ring-2 focus-within:ring-teal-600/30">
+              <div className="flex items-center bg-[#F2F2F7] dark:bg-[#3A3A3C] rounded-[14px] px-4 py-3 transition-all focus-within:ring-2" style={{ '--tw-ring-color': `${ac.primary}4D` } as React.CSSProperties}>
                 <Search className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-2.5" strokeWidth={2.5} />
                 <input
                   type="text"
@@ -1150,9 +1329,21 @@ function PanelContent({
             {searchQuery.trim() !== '' ? (
               /* ── 검색 결과 ── */
               <div role="region" aria-label="검색 결과">
-                <h3 className="text-[12px] text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-3 ml-1" style={{ fontWeight: 700 }}>
-                  검색 결과 ({searchResults.length})
-                </h3>
+                <div className="flex items-center gap-2 mb-3 ml-1">
+                  {isMobile && onMobileBack && (
+                    <button
+                      onClick={() => { setSearchQuery(''); if (onMobileBack) onMobileBack(); }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer active:scale-90 transition-transform"
+                      style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                      aria-label="뒤로 가기"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={2.5} />
+                    </button>
+                  )}
+                  <h3 className="text-[12px] uppercase tracking-wider" style={{ fontWeight: 700, color: ac.primary }}>
+                    검색 결과 ({searchResults.length})
+                  </h3>
+                </div>
                 {searchResults.length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-gray-400 mt-14">
                     <p className="text-gray-500 dark:text-gray-400 text-[16px]" style={{ fontWeight: 600 }}>앗, 결과가 없어요</p>
@@ -1166,21 +1357,17 @@ function PanelContent({
                         onClick={() => { setSearchQuery(''); setSelectedPartId(res.partId); handleSymptomClick(res.partId, { title: res.title, point: res.point }); }}
                         onMouseEnter={() => setHoveredPartId(res.partId)}
                         onMouseLeave={() => setHoveredPartId(null)}
-                        className="w-full text-left bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-4 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 hover:shadow-[0_8px_30px_rgba(13,148,136,0.08)] active:scale-[0.98] group cursor-pointer relative overflow-hidden"
+                        className="w-full text-left bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-4 rounded-2xl transition-all duration-300 active:scale-[0.98] group cursor-pointer relative overflow-hidden"
                         role="listitem"
                         aria-label={`${res.title} - ${res.point}`}
                       >
-                        <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ backgroundColor: ac.primary }} />
                         <div className="flex items-center gap-3">
                           <div className="flex-1 min-w-0">
-                            <span className="text-[14px] md:text-[15px] text-gray-800 dark:text-gray-200 block mb-1.5" style={{ fontWeight: 600 }}>{res.title}</span>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[11px] rounded-md" style={{ fontWeight: 600 }}>{res.partName}</span>
-                              <span className="w-1 h-1 rounded-full bg-teal-400" />
-                              <span className="text-[12px] text-teal-600 dark:text-teal-400" style={{ fontWeight: 600 }}>{res.point}</span>
-                            </div>
+                            <span className="text-[14px] md:text-[15px] text-gray-800 dark:text-gray-200 block mb-1" style={{ fontWeight: 600 }}>{res.title}</span>
+                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[11px] rounded-md" style={{ fontWeight: 600 }}>{res.partName}</span>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" strokeWidth={2.5} />
+                          <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" strokeWidth={2.5} />
                         </div>
                       </button>
                     ))}
@@ -1191,8 +1378,18 @@ function PanelContent({
               /* ── 선택된 파트의 증상 목록 ── */
               <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
                 <div className="flex items-center gap-2 mb-3 ml-1">
-                  <h3 className="text-[12px] text-teal-600 dark:text-teal-400 uppercase tracking-wider" style={{ fontWeight: 700 }}>
-                    {SUB_PARTS[selectedPartId].name} - 이런 증상 있어?
+                  {isMobile && onMobileBack && (
+                    <button
+                      onClick={onMobileBack}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer active:scale-90 transition-transform"
+                      style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                      aria-label="뒤로 가기"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={2.5} />
+                    </button>
+                  )}
+                  <h3 className="text-[12px] uppercase tracking-wider" style={{ fontWeight: 700, color: ac.primary }}>
+                    {SUB_PARTS[selectedPartId].name} - {gender === 'female' ? '혹시 이런 느낌이야?' : '이런 증상 있어?'}
                   </h3>
                   {SUB_PARTS[selectedPartId].note && (
                     <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded" style={{ fontWeight: 500 }}>
@@ -1201,29 +1398,27 @@ function PanelContent({
                   )}
                 </div>
                 <div className="space-y-2" role="list" aria-label={`${SUB_PARTS[selectedPartId].name} 증상 목록`}>
-                  {SUB_PARTS[selectedPartId].symptoms.map((symptom, idx) => (
+                  {SUB_PARTS[selectedPartId].symptoms
+                    .filter(s => !s.gender || s.gender === gender)
+                    .map((symptom, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSymptomClick(selectedPartId, symptom)}
-                      className="w-full text-left bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-4 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 hover:shadow-[0_8px_30px_rgba(13,148,136,0.08)] active:scale-[0.98] group cursor-pointer relative overflow-hidden"
+                      className="w-full text-left bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-4 rounded-2xl transition-all duration-300 active:scale-[0.98] group cursor-pointer relative overflow-hidden"
                       role="listitem"
-                      aria-label={`${symptom.title} - ${symptom.point}`}
+                      aria-label={symptom.title}
                     >
                       {/* 호버 시 왼쪽 인디케이터 */}
-                      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full bg-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ backgroundColor: ac.primary }} />
                       <div className="flex items-center gap-3">
                         {/* 넘버링 */}
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: 'rgba(13,148,136,0.06)', color: '#0D9488', fontWeight: 700 }}>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[12px] transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: ac.bg, color: ac.primary, fontWeight: 700 }}>
                           {idx + 1}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-[14px] md:text-[15px] text-gray-800 dark:text-gray-200 block mb-1" style={{ fontWeight: 600 }}>{symptom.title}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-1 h-1 rounded-full bg-teal-400" />
-                            <span className="text-[12px] text-teal-600 dark:text-teal-400" style={{ fontWeight: 600 }}>{symptom.point}</span>
-                          </div>
+                          <span className="text-[14px] md:text-[15px] text-gray-800 dark:text-gray-200 block" style={{ fontWeight: 600 }}>{symptom.title}</span>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" strokeWidth={2.5} />
+                        <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:translate-x-0.5 transition-all duration-300 flex-shrink-0" strokeWidth={2.5} />
                       </div>
                     </button>
                   ))}
@@ -1233,7 +1428,7 @@ function PanelContent({
               /* ── 빈 상태 + 카테고리 세부 + 상황별 바로가기 ── */
               <div className="flex flex-col h-full">
                 {selectedCategoryId ? (
-                  /* ── 카테고리 선택됨 → 세부 부위 목록 ── */
+                  /* ── 카테고리 선택됨 → 세부 부위 목��� ── */
                   <div className="mb-4">
                     {(() => {
                       const cat = CATEGORIES.find(c => c.id === selectedCategoryId);
@@ -1241,7 +1436,17 @@ function PanelContent({
                       return (
                         <>
                           <div className="flex items-center gap-2.5 mb-3 ml-1">
-                            <div className="w-1.5 h-5 rounded-full" style={{ backgroundColor: '#0D9488' }} />
+                            {isMobile && onMobileBack && (
+                              <button
+                                onClick={onMobileBack}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer active:scale-90 transition-transform"
+                                style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                                aria-label="뒤로 가기"
+                              >
+                                <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" strokeWidth={2.5} />
+                              </button>
+                            )}
+                            <div className="w-1.5 h-5 rounded-full" style={{ backgroundColor: ac.primary }} />
                             <h3 className="text-[14px] text-gray-900 dark:text-gray-100" style={{ fontWeight: 600 }}>{cat.name}</h3>
                             <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>{cat.partIds.length}개 부위</span>
                           </div>
@@ -1255,20 +1460,20 @@ function PanelContent({
                                   onClick={() => handlePartFromCategory(pid)}
                                   onMouseEnter={() => setHoveredPartId(pid)}
                                   onMouseLeave={() => setHoveredPartId(null)}
-                                  className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 active:scale-[0.98] cursor-pointer group"
+                                  className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 active:scale-[0.98] cursor-pointer group"
                                   style={{
                                     backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
                                     border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}`,
                                   }}
                                 >
-                                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform" style={{ backgroundColor: isDark ? 'rgba(13,148,136,0.12)' : 'rgba(13,148,136,0.06)' }}>
-                                    <MapPin className="w-4 h-4 text-teal-500" />
+                                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform" style={{ backgroundColor: isDark ? ac.bgDark : ac.bg }}>
+                                    <MapPin className="w-4 h-4" style={{ color: ac.primary }} />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <span className="text-[14px] text-gray-800 dark:text-gray-200 block" style={{ fontWeight: 600 }}>{part.name}</span>
-                                    <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>{part.symptoms.length}개 증상</span>
+                                    <span className="text-[11px] text-gray-400 dark:text-gray-500" style={{ fontWeight: 400 }}>{part.symptoms.filter(s => !s.gender || s.gender === gender).length}개 증상</span>
                                   </div>
-                                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
                                 </button>
                               );
                             })}
@@ -1280,9 +1485,9 @@ function PanelContent({
                 ) : (
                   <div className="flex flex-col items-center text-center mb-6 pt-4 md:pt-8">
                     <ClipboardList className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2.5" strokeWidth={1.5} />
-                    <p className="text-gray-500 dark:text-gray-400 text-[16px]" style={{ fontWeight: 600 }}>오늘 어디가 불편해?</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-[16px]" style={{ fontWeight: 600 }}>{gender === 'female' ? '오늘 어디가 신경 쓰여?' : '오늘 어디가 불편해?'}</p>
                     <p className="text-[13px] mt-1 text-gray-400 dark:text-gray-500 text-center max-w-[240px] !leading-relaxed" style={{ fontWeight: 400 }}>
-                      3D 바디맵에서 아픈 곳을 눌러보거나,<br />아래 상황에서 골라봐.
+                      {gender === 'female' ? '3D 바디맵에서 불편한 곳을 눌러보거나,' : '3D 바디맵에서 아픈 곳을 눌러보거나,'}<br />아래 상황에서 골라봐.
                     </p>
                   </div>
                 )}
@@ -1296,15 +1501,20 @@ function PanelContent({
                     </h3>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {SITUATION_SHORTCUTS.map((s) => (
+                    {SITUATION_SHORTCUTS
+                      .filter(s => !s.gender || s.gender === gender)
+                      .map((s) => (
                       <button
                         key={s.title}
                         onClick={() => handleShortcutClick(s)}
-                        className="flex flex-col items-start bg-white dark:bg-[#2C2C2E] border border-gray-100/80 dark:border-gray-700/50 p-3.5 rounded-2xl transition-all duration-300 hover:border-teal-200 dark:hover:border-teal-800/50 hover:shadow-[0_8px_30px_rgba(13,148,136,0.06)] active:scale-[0.97] cursor-pointer text-left group relative overflow-hidden"
+                        className="flex flex-col items-start bg-white dark:bg-[#2C2C2E] border p-3.5 rounded-2xl transition-all duration-300 active:scale-[0.97] cursor-pointer text-left group relative overflow-hidden"
+                        style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = ac.border; e.currentTarget.style.boxShadow = `0 8px 30px ${ac.shadow}`; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'; e.currentTarget.style.boxShadow = 'none'; }}
                         aria-label={`${s.title}: ${s.desc}`}
                       >
                         {/* 호버 시 배경 글로우 */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/0 to-emerald-50/0 group-hover:from-teal-50/50 group-hover:to-emerald-50/30 dark:group-hover:from-teal-900/10 dark:group-hover:to-emerald-900/5 transition-all duration-300" />
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-300" style={{ background: `linear-gradient(135deg, ${ac.bg}, transparent)` }} />
                         <div className="relative">
                           <span className="text-[20px] mb-1.5 block group-hover:scale-110 transition-transform duration-300 origin-left" aria-hidden="true">{s.icon}</span>
                           <span className="text-[13px] text-gray-800 dark:text-gray-200 !leading-snug block" style={{ fontWeight: 600 }}>{s.title}</span>
@@ -1334,27 +1544,17 @@ interface CategoryItem {
   name: string;
   gender: 'common' | 'male' | 'female';
   partIds: string[];
-  cameraOrbit: string;
-  cameraTarget: string;
 }
 
 const CATEGORIES: CategoryItem[] = [
-  { id: 'cat_head',    name: '머리·얼굴', gender: 'common', partIds: ['head_main', 'eyes', 'ear', 'face'],
-    cameraOrbit: '0deg 60deg 2.0m', cameraTarget: '0 1.3 0.05' },
-  { id: 'cat_neck',    name: '목·어깨',   gender: 'common', partIds: ['neck', 'shoulder'],
-    cameraOrbit: '-10deg 72deg 2.2m', cameraTarget: '0 0.95 0.03' },
-  { id: 'cat_chest',   name: '가슴·등',   gender: 'common', partIds: ['chest_main', 'back_upper'],
-    cameraOrbit: '0deg 78deg 2.0m', cameraTarget: '0 0.7 0.05' },
-  { id: 'cat_abdomen', name: '복부',      gender: 'common', partIds: ['abdomen_main', 'pelvis'],
-    cameraOrbit: '0deg 86deg 2.0m', cameraTarget: '0 0.33 0.1' },
-  { id: 'cat_back',    name: '허리',      gender: 'common', partIds: ['back_lower'],
-    cameraOrbit: '180deg 85deg 2.0m', cameraTarget: '0 0.36 -0.05' },
-  { id: 'cat_arms',    name: '팔·손',     gender: 'common', partIds: ['arm_upper', 'arm_lower', 'hand'],
-    cameraOrbit: '-35deg 80deg 2.5m', cameraTarget: '-0.5 0.45 0.05' },
-  { id: 'cat_legs',    name: '다리·발',   gender: 'common', partIds: ['leg_upper', 'knee', 'leg_lower', 'foot'],
-    cameraOrbit: '-5deg 95deg 3.0m', cameraTarget: '0 -0.6 0.03' },
-  { id: 'cat_female',  name: '여성건강',  gender: 'female', partIds: ['pelvis', 'back_lower'],
-    cameraOrbit: '0deg 88deg 2.0m', cameraTarget: '0 0.28 0.08' },
+  { id: 'cat_head',    name: '머리·얼굴', gender: 'common', partIds: ['head_main', 'eyes', 'ear', 'face'] },
+  { id: 'cat_neck',    name: '목·어깨',   gender: 'common', partIds: ['neck', 'shoulder'] },
+  { id: 'cat_chest',   name: '가슴·등',   gender: 'common', partIds: ['chest_main', 'back_upper'] },
+  { id: 'cat_abdomen', name: '복부',      gender: 'common', partIds: ['abdomen_main', 'pelvis'] },
+  { id: 'cat_back',    name: '허리',      gender: 'common', partIds: ['back_lower'] },
+  { id: 'cat_arms',    name: '팔·손',     gender: 'common', partIds: ['arm_upper', 'arm_lower', 'hand'] },
+  { id: 'cat_legs',    name: '다리·발',   gender: 'common', partIds: ['leg_upper', 'knee', 'leg_lower', 'foot'] },
+  { id: 'cat_female',  name: '여성건강',  gender: 'female', partIds: ['pelvis', 'back_lower'] },
 ];
 
 export default function App() {
@@ -1364,10 +1564,10 @@ export default function App() {
   const [mobilePanel, setMobilePanel] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [gender, setGender] = useState<Gender>('male');
+  const ac = getAccent(gender);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [highlightedPartIds, setHighlightedPartIds] = useState<string[]>([]);
-  const [focusCameraOrbit, setFocusCameraOrbit] = useState<string | null>(null);
-  const [focusCameraTarget, setFocusCameraTarget] = useState<string | null>(null);
+  // 카메라 포커스 state 제거 — 핫스팟 위치 이펙트로 전환
 
   // 다크모드 시스템 감지
   useEffect(() => {
@@ -1458,8 +1658,6 @@ export default function App() {
     setActiveResult(null);
     setSelectedCategoryId(null);
     setHighlightedPartIds([]);
-    setFocusCameraOrbit(null);
-    setFocusCameraTarget(null);
     setMobilePanel(false);
   };
 
@@ -1470,13 +1668,9 @@ export default function App() {
       // 토글 해제
       setSelectedCategoryId(null);
       setHighlightedPartIds([]);
-      setFocusCameraOrbit(null);
-      setFocusCameraTarget(null);
     } else {
       setSelectedCategoryId(cat.id);
       setHighlightedPartIds(cat.partIds);
-      setFocusCameraOrbit(cat.cameraOrbit);
-      setFocusCameraTarget(cat.cameraTarget);
     }
     setSelectedPartId(null);
     setActiveResult(null);
@@ -1504,8 +1698,6 @@ export default function App() {
       setActiveResult(null);
       setSelectedCategoryId(null);
       setHighlightedPartIds([]);
-      setFocusCameraOrbit(null);
-      setFocusCameraTarget(null);
       setMobilePanel(true);
     }
   };
@@ -1544,21 +1736,23 @@ export default function App() {
     const query = searchQuery.toLowerCase();
     const results: { partId: string; partName: string; title: string; point: string }[] = [];
     Object.entries(SUB_PARTS).forEach(([partId, partData]) => {
-      partData.symptoms.forEach((symptom) => {
-        if (symptom.title.toLowerCase().includes(query) || symptom.point.toLowerCase().includes(query) || partData.name.toLowerCase().includes(query)) {
-          results.push({ partId, partName: partData.name, title: symptom.title, point: symptom.point });
-        }
-      });
+      partData.symptoms
+        .filter(s => !s.gender || s.gender === gender)
+        .forEach((symptom) => {
+          if (symptom.title.toLowerCase().includes(query) || symptom.point.toLowerCase().includes(query) || partData.name.toLowerCase().includes(query)) {
+            results.push({ partId, partName: partData.name, title: symptom.title, point: symptom.point });
+          }
+        });
     });
     return results;
-  }, [searchQuery]);
+  }, [searchQuery, gender]);
 
   return (
     <div className="h-screen w-full overflow-hidden" style={{ fontFamily: "'Noto Sans KR', sans-serif" }} lang="ko">
       <Toaster position="top-center" richColors />
 
       <AnimatePresence>
-        {showIntro && <IntroOverlay onStart={handleIntroStart} />}
+        {showIntro && <IntroOverlay onStart={handleIntroStart} onDirectReserve={() => { setShowIntro(false); setShowDisclaimer(true); }} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -1567,7 +1761,7 @@ export default function App() {
 
       <AnimatePresence>
         {showDisclaimer && (
-          <DisclaimerModal onClose={() => setShowDisclaimer(false)} onRestart={handleRestart} />
+          <DisclaimerModal onClose={() => setShowDisclaimer(false)} onRestart={handleRestart} gender={gender} />
         )}
       </AnimatePresence>
 
@@ -1593,6 +1787,7 @@ export default function App() {
             currentFlowStep={currentFlowStep}
             isDark={isDark}
             isMobile={false}
+            gender={gender}
           />
         </div>
 
@@ -1630,10 +1825,23 @@ export default function App() {
                   handleShortcutClick={handleShortcutClick}
                   handlePartFromCategory={handlePartFromCategory}
                   setActiveResult={setActiveResult}
-                  setShowDisclaimer={() => setShowDisclaimer(true)}
+                  setShowDisclaimer={() => { setShowDisclaimer(true); setMobilePanel(false); }}
                   currentFlowStep={currentFlowStep}
                   isDark={isDark}
                   isMobile={true}
+                  gender={gender}
+                  onMobileBack={() => {
+                    if (activeResult) {
+                      setActiveResult(null);
+                    } else if (selectedPartId) {
+                      setSelectedPartId(null);
+                    } else if (selectedCategoryId) {
+                      setSelectedCategoryId(null);
+                      setHighlightedPartIds([]);
+                    } else {
+                      setMobilePanel(false);
+                    }
+                  }}
                 />
               </Drawer.Content>
             </Drawer.Portal>
@@ -1648,12 +1856,12 @@ export default function App() {
             {/* 스텝 인디케이터 */}
             {!showIntro && (
               <div className="flex justify-center mb-2.5">
-                <StepIndicator currentStep={currentFlowStep} isDark={isDark} />
+                <StepIndicator currentStep={currentFlowStep} isDark={isDark} gender={gender} />
               </div>
             )}
             <div className="flex items-center justify-between mb-2.5">
               <h2 className="text-[17px] text-gray-900 dark:text-gray-100 tracking-tight" style={{ fontWeight: 700 }}>
-                오늘 어디가 불편해?
+                {gender === 'female' ? '오늘 어디가 신경 쓰여?' : '오늘 어디가 불편해?'}
               </h2>
             </div>
             <div className="flex items-center bg-white/80 dark:bg-[#2C2C2E]/80 backdrop-blur-sm rounded-[12px] px-3.5 py-2.5 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
@@ -1687,7 +1895,7 @@ export default function App() {
                     style={{
                       fontWeight: isActive ? 600 : 400,
                       backgroundColor: isActive
-                        ? '#0D9488'
+                        ? ac.primary
                         : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'),
                       color: isActive
                         ? '#FFFFFF'
@@ -1703,7 +1911,7 @@ export default function App() {
           </div>
 
           {/* ── 성별 토글 ── */}
-          <div className="absolute z-20 left-1/2 -translate-x-1/2 md:left-4 md:translate-x-0 md:top-4 md:bottom-auto" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 60px)' }}>
+          <div className="absolute z-20 left-1/2 -translate-x-1/2 md:left-4 md:translate-x-0 md:top-4 md:bottom-auto" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)' }}>
             <div className="flex rounded-full p-0.5 backdrop-blur-xl" style={{ backgroundColor: isDark ? 'rgba(44,44,46,0.85)' : 'rgba(255,255,255,0.88)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
               {(['male', 'female'] as Gender[]).map(g => (
                 <button
@@ -1713,7 +1921,7 @@ export default function App() {
                   style={{
                     fontWeight: gender === g ? 700 : 500,
                     color: gender === g ? (isDark ? '#FFFFFF' : '#FFFFFF') : (isDark ? '#A1A1AA' : '#6B7280'),
-                    backgroundColor: gender === g ? '#0D9488' : 'transparent',
+                    backgroundColor: gender === g ? (g === 'male' ? '#0D9488' : '#E11D48') : 'transparent',
                   }}
                 >
                   {g === 'male' ? '남성' : '여성'}
@@ -1735,13 +1943,13 @@ export default function App() {
                     style={{
                       fontWeight: isActive ? 600 : 400,
                       backgroundColor: isActive
-                        ? '#0D9488'
+                        ? ac.primary
                         : (isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.75)'),
                       color: isActive
                         ? '#FFFFFF'
                         : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'),
                       boxShadow: isActive
-                        ? '0 4px 16px rgba(13,148,136,0.3)'
+                        ? `0 4px 16px ${ac.shadow}`
                         : '0 1px 4px rgba(0,0,0,0.04)',
                       letterSpacing: '0.01em',
                     }}
@@ -1760,8 +1968,6 @@ export default function App() {
             hoveredPartId={hoveredPartId}
             selectedPartId={selectedPartId}
             highlightedPartIds={highlightedPartIds}
-            focusCameraOrbit={focusCameraOrbit}
-            focusCameraTarget={focusCameraTarget}
             onHover={setHoveredPartId}
             onClick={handlePartClick}
           />

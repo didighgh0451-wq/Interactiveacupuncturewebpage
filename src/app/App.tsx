@@ -8,8 +8,8 @@ import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { BodyMap3D, type Gender } from './components/body-map-3d';
 import { AcupointGuide, hasGuide } from './components/acupoint-guide';
-import MascotFrame from '../imports/Frame1-17-168';
-import LogoFrame from '../imports/Frame3';
+// 캐릭터 & 로고: public 폴더에서 직접 불러옴
+// MascotFrame → /3.png, LogoFrame → /99.png
 
 // 햅틱 유틸
 const haptic = (ms = 12) => { try { navigator?.vibrate?.(ms); } catch {} };
@@ -755,7 +755,7 @@ function IntroOverlay({ onStart, onDirectReserve }: { onStart: () => void; onDir
             </div>
             <div className="relative z-10 drop-shadow-xl mascot-wrap">
               <div className="w-[398px] h-[512px] origin-top-left mascot-scale">
-                <MascotFrame />
+                <img src="/3.png" alt="마스코트" className="w-full h-full object-contain" />
               </div>
             </div>
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-32 h-5 bg-teal-500/15 dark:bg-teal-400/10 rounded-full blur-md z-10" />
@@ -1091,11 +1091,7 @@ function DisclaimerModal({ onClose, onRestart, gender }: { onClose: () => void; 
         <div className="flex flex-col items-center text-center">
           {/* 로고 */}
           <div className="w-16 h-16 rounded-[20px] flex items-center justify-center mb-5 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ac.bg}, ${ac.bg})`, border: `1px solid ${ac.border}` }}>
-            <div className="w-16 h-16 overflow-hidden">
-              <div className="w-[1422px] h-[1006px] origin-top-left" style={{ transform: `scale(${64/1422})` }}>
-                <LogoFrame />
-              </div>
-            </div>
+            <img src="/99.png" alt="로고" className="w-16 h-16 object-contain" />
           </div>
 
           <h2 className="text-[22px] text-gray-900 dark:text-gray-100 tracking-tight mb-2.5 !leading-[1.3]" style={{ fontWeight: 700 }}>
